@@ -1,0 +1,139 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* =========================================================
+   SIG — terminal financeiro retrofuturista
+   Base marinho quase preto + malha técnica + fósforo.
+   ========================================================= */
+
+body {
+  background-color: #050B14;
+  /* Malha de instrumento: grade fina, quase imperceptível.
+     É o que dá o "papel milimetrado" do painel técnico. */
+  background-image:
+    linear-gradient(rgba(78, 197, 220, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(78, 197, 220, 0.035) 1px, transparent 1px);
+  background-size: 44px 44px;
+  background-attachment: fixed;
+}
+
+/* ---------------------------------------------------------
+   PAINEL — o elemento-assinatura.
+   Canto superior direito chanfrado, como bisel de instrumento,
+   com um traço de fósforo marcando o corte.
+   --------------------------------------------------------- */
+.painel {
+  position: relative;
+  background-color: #0B1626;
+  border: 1px solid #1E3350;
+  clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 0 100%);
+}
+
+.painel::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 20px;
+  height: 20px;
+  background: linear-gradient(
+    225deg,
+    rgba(78, 197, 220, 0.5) 0%,
+    rgba(78, 197, 220, 0.5) 1.5px,
+    transparent 1.5px
+  );
+  pointer-events: none;
+}
+
+.painel-destaque {
+  border-color: rgba(78, 197, 220, 0.45);
+}
+
+/* ---------------------------------------------------------
+   RÓTULO — etiqueta de instrumento: mono, caixa alta, espaçada.
+   É o que carrega o registro vintage-técnico na tipografia.
+   --------------------------------------------------------- */
+.rotulo {
+  font-family: var(--font-mono), monospace;
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+}
+
+/* Título de seção */
+.titulo {
+  font-family: var(--font-display), sans-serif;
+  letter-spacing: -0.02em;
+}
+
+/* ---------------------------------------------------------
+   CIFRA — leitura de mostrador. Largura fixa por algarismo
+   para as colunas do DRE alinharem sozinhas, com um leve
+   halo de fósforo nos valores principais.
+   --------------------------------------------------------- */
+.cifra {
+  font-family: var(--font-mono), monospace;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+.cifra-halo {
+  text-shadow: 0 0 18px currentColor;
+  opacity: 0.98;
+}
+
+/* Régua divisória com marcação, como escala de instrumento */
+.regua {
+  height: 1px;
+  background-image: repeating-linear-gradient(
+    90deg,
+    #1E3350 0px,
+    #1E3350 6px,
+    transparent 6px,
+    transparent 12px
+  );
+}
+
+/* Campo de entrada com aparência de leitura de terminal */
+.campo {
+  background-color: #050B14;
+  border: 1px solid #1E3350;
+  color: #E6F0F8;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.campo:focus {
+  outline: none;
+  border-color: #4EC5DC;
+  box-shadow: 0 0 0 1px rgba(78, 197, 220, 0.35);
+}
+
+:focus-visible {
+  outline: 2px solid #4EC5DC;
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ---------------------------------------------------------
+   AUTOPREENCHIMENTO
+   O Chrome injeta fundo branco nos campos que ele preenche,
+   quebrando o tema escuro. Não há como desligar isso pelo
+   background comum — a saída é uma sombra interna gigante
+   que cobre a área do campo.
+   --------------------------------------------------------- */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 1000px #050B14 inset !important;
+  -webkit-text-fill-color: #E6F0F8 !important;
+  caret-color: #E6F0F8;
+  transition: background-color 9999s ease-in-out 0s;
+}
