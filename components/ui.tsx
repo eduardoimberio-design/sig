@@ -36,7 +36,7 @@ export function Campo({
   );
 }
 
-export function BotaoSubmit({ children }: { children: React.ReactNode }) {
+export function BotaoSubmit({ children }: { children?: React.ReactNode }) {
   const { pending } = useFormStatus();
   return (
     <button
@@ -56,7 +56,9 @@ export function Alerta({
   children,
 }: {
   tipo: "erro" | "sucesso";
-  children: React.ReactNode;
+  // Opcional porque as mensagens vêm de estado que pode estar
+  // vazio — sem isso o build de produção rejeita cada uso.
+  children?: React.ReactNode;
 }) {
   const estilo =
     tipo === "erro"

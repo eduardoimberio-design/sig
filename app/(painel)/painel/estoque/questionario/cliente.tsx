@@ -47,7 +47,7 @@ function Secao({
 }: {
   numero: string;
   titulo: string;
-  children: React.ReactNode;
+  children?: React.ReactNode;
 }) {
   return (
     <div className="painel p-6">
@@ -60,7 +60,7 @@ function Secao({
   );
 }
 
-function Rotulo({ children }: { children: React.ReactNode }) {
+function Rotulo({ children }: { children?: React.ReactNode }) {
   return <span className="rotulo mb-2 block text-white/45">{children}</span>;
 }
 
