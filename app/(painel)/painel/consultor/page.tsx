@@ -49,7 +49,7 @@ export default async function ConsultorPage() {
           className="rotulo mt-4 inline-block border border-cyan bg-cyan/10 px-5 py-2.5 text-cyan
                      transition-colors hover:bg-cyan hover:text-base-bg"
         >
-          Abrir o Conselheiro — Ishikawa, 5 Porquês, 5W2H e SWOT
+          Conselheiro — diagnosticar problema, achar a causa e montar o plano de ação
         </a>
       </header>
 

@@ -33,12 +33,13 @@ export default async function ConselheiroPage() {
         </a>
         <span className="rotulo text-cyan">Conselheiro</span>
         <h1 className="titulo mt-1 text-3xl font-semibold">
-          Diagnóstico e decisão estruturada
+          Apoio à decisão e solução de problemas
         </h1>
-        <p className="mt-2 max-w-2xl text-sm text-white/50">
-          Traga um problema ou uma decisão. Ishikawa e 5 Porquês ajudam a
-          achar a causa raiz; 5W2H transforma isso em plano de ação; SWOT
-          apoia decisões estratégicas mais amplas.
+        <p className="mt-2 max-w-2xl text-sm leading-relaxed text-white/50">
+          Traga um problema do dia a dia ou uma decisão que você precisa tomar.
+          O Conselheiro mapeia as causas possíveis, aprofunda até a raiz,
+          monta um plano de ação com responsável e prazo, e avalia cenários
+          estratégicos antes de você decidir.
         </p>
       </header>
 

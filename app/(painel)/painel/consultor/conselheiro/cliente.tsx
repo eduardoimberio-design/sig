@@ -73,7 +73,7 @@ export function FormNovoCaso({ habilitado }: { habilitado: boolean }) {
               : "border-base-border text-white/50 hover:text-white/80"
           }`}
         >
-          Diagnosticar problema (Ishikawa)
+          Resolver um problema
         </button>
         <button
           type="button"
@@ -84,7 +84,7 @@ export function FormNovoCaso({ habilitado }: { habilitado: boolean }) {
               : "border-base-border text-white/50 hover:text-white/80"
           }`}
         >
-          Decisão estratégica (SWOT)
+          Avaliar uma decisão
         </button>
       </div>
       <input type="hidden" name="tipo_inicial" value={tipo} />
@@ -178,7 +178,7 @@ export function ListaCasos({ casos }: { casos: any[] }) {
                 <p className="mt-1 text-sm text-white">{caso.titulo}</p>
               </div>
               <span className="rotulo text-white/30">
-                {caso.tipo_inicial === "ishikawa" ? "Diagnóstico" : "SWOT"}
+                {caso.tipo_inicial === "ishikawa" ? "Problema" : "Decisão"}
               </span>
             </button>
 
@@ -234,7 +234,7 @@ function IshikawaView({ caso }: { caso: any }) {
 
   return (
     <div className="space-y-4">
-      <p className="rotulo text-ambar">Ishikawa — causas possíveis</p>
+      <p className="rotulo text-ambar">Causas possíveis do problema</p>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {CATEGORIAS_ISHIKAWA.map((cat) => (
@@ -297,7 +297,7 @@ function IshikawaView({ caso }: { caso: any }) {
             <input type="hidden" name="caso_id" value={caso.id} />
             <input type="hidden" name="problema" value={caso.descricao_problema} />
             <button className="rotulo border border-cyan px-4 py-2 text-cyan transition-colors hover:bg-cyan hover:text-base-bg">
-              Gerar causas com IA
+              Sugerir causas
             </button>
           </form>
         )}
@@ -307,7 +307,7 @@ function IshikawaView({ caso }: { caso: any }) {
             <input type="hidden" name="caso_id" value={caso.id} />
             <input type="hidden" name="causa_origem" value={causaPrincipal.descricao} />
             <button className="rotulo border border-ambar/50 px-4 py-2 text-ambar transition-colors hover:bg-ambar hover:text-base-bg">
-              Aprofundar com 5 Porquês
+              Aprofundar até a causa raiz
             </button>
           </form>
         )}
@@ -345,7 +345,7 @@ function CincoPorquesView({ caso }: { caso: any }) {
 
   return (
     <div className="space-y-3 border-t border-base-border pt-5">
-      <p className="rotulo text-ambar">5 Porquês — {dados.causa_origem}</p>
+      <p className="rotulo text-ambar">Caminho até a raiz — {dados.causa_origem}</p>
 
       {dados.niveis.map((n: any, i: number) => (
         <div key={i} className="flex items-start gap-3">
@@ -376,7 +376,7 @@ function CincoPorquesView({ caso }: { caso: any }) {
             <input type="hidden" name="caso_id" value={caso.id} />
             <input type="hidden" name="causa_raiz" value={ultimaResposta} />
             <button className="rotulo border border-cyan px-4 py-2 text-cyan transition-colors hover:bg-cyan hover:text-base-bg">
-              Criar plano de ação (5W2H)
+              Criar plano de ação
             </button>
           </form>
         )}
@@ -420,7 +420,7 @@ function Plano5W2HView({ caso }: { caso: any }) {
 
   return (
     <div className="space-y-3 border-t border-base-border pt-5">
-      <p className="rotulo text-cyan">Plano de ação (5W2H)</p>
+      <p className="rotulo text-cyan">Plano de ação</p>
 
       {acoes.map((a) => (
         <div key={a._id} className="border border-base-border p-4">
