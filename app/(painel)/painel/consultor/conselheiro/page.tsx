@@ -33,13 +33,13 @@ export default async function ConselheiroPage() {
         </a>
         <span className="rotulo text-cyan">Conselheiro</span>
         <h1 className="titulo mt-1 text-3xl font-semibold">
-          Apoio à decisão e solução de problemas
+          Diagnóstico e decisão estruturada
         </h1>
-        <p className="mt-2 max-w-2xl text-sm leading-relaxed text-white/50">
-          Traga um problema do dia a dia ou uma decisão que você precisa tomar.
-          O Conselheiro mapeia as causas possíveis, aprofunda até a raiz,
-          monta um plano de ação com responsável e prazo, e avalia cenários
-          estratégicos antes de você decidir.
+        <p className="mt-2 max-w-2xl text-sm text-white/50">
+          Traga um problema ou uma decisão. O Conselheiro levanta as causas
+          prováveis, aprofunda até a causa raiz e entrega um plano de ação com
+          responsável, prazo e custo. Quando a questão é estratégica, ele
+          organiza o cenário do negócio para você decidir com clareza.
         </p>
       </header>
 

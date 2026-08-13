@@ -26,7 +26,7 @@ const AGENTES = [
   },
   {
     nome: "Consultor IA",
-    descricao: "Análise, recomendações e Conselheiro",
+    descricao: "Análise dos números, recomendações e plano de ação",
     href: "/painel/consultor",
     disponivel: true,
   },

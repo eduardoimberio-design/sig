@@ -49,7 +49,8 @@ export default async function ConsultorPage() {
           className="rotulo mt-4 inline-block border border-cyan bg-cyan/10 px-5 py-2.5 text-cyan
                      transition-colors hover:bg-cyan hover:text-base-bg"
         >
-          Conselheiro — diagnosticar problema, achar a causa e montar o plano de ação
+          Abrir o Conselheiro — investigar causas, montar plano de ação e
+          decidir com clareza
         </a>
       </header>
 

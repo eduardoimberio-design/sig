@@ -84,7 +84,7 @@ export function FormNovoCaso({ habilitado }: { habilitado: boolean }) {
               : "border-base-border text-white/50 hover:text-white/80"
           }`}
         >
-          Avaliar uma decisão
+          Apoiar uma decisão
         </button>
       </div>
       <input type="hidden" name="tipo_inicial" value={tipo} />
@@ -234,7 +234,7 @@ function IshikawaView({ caso }: { caso: any }) {
 
   return (
     <div className="space-y-4">
-      <p className="rotulo text-ambar">Causas possíveis do problema</p>
+      <p className="rotulo text-ambar">Causas possíveis</p>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {CATEGORIAS_ISHIKAWA.map((cat) => (
@@ -297,7 +297,7 @@ function IshikawaView({ caso }: { caso: any }) {
             <input type="hidden" name="caso_id" value={caso.id} />
             <input type="hidden" name="problema" value={caso.descricao_problema} />
             <button className="rotulo border border-cyan px-4 py-2 text-cyan transition-colors hover:bg-cyan hover:text-base-bg">
-              Sugerir causas
+              Gerar causas com IA
             </button>
           </form>
         )}
@@ -345,7 +345,7 @@ function CincoPorquesView({ caso }: { caso: any }) {
 
   return (
     <div className="space-y-3 border-t border-base-border pt-5">
-      <p className="rotulo text-ambar">Caminho até a raiz — {dados.causa_origem}</p>
+      <p className="rotulo text-ambar">Caminho até a causa raiz — {dados.causa_origem}</p>
 
       {dados.niveis.map((n: any, i: number) => (
         <div key={i} className="flex items-start gap-3">
