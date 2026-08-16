@@ -55,6 +55,14 @@ export default async function PainelLayout({
                 Admin
               </Link>
             )}
+            <a
+              href="https://wa.me/5511985503734"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-white/60 hover:text-cyan"
+            >
+              Falar com o SIG
+            </a>
             <Link href="/painel/acesso" className="text-white/60 hover:text-ambar">
               {empresa.acesso_vitalicio
                 ? "Acesso vitalício"

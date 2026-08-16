@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { moeda, percentual } from "@/lib/formatters";
 import type { AnaliseEstruturada } from "./consultor-dados";
+import { montarContextoAnexos } from "@/lib/anexos-contexto";
 
 export interface RecomendacaoGerada {
   categoria: "precificacao" | "estoque" | "financeiro" | "concentracao_gasto" | "ticket_medio";
@@ -39,7 +40,8 @@ Formato de saída: responda APENAS com um JSON no formato abaixo, sem texto ante
 
 export async function gerarRelatorioConsultor(
   dados: AnaliseEstruturada,
-  empresaNome: string
+  empresaNome: string,
+  empresaId?: string
 ): Promise<RelatorioGerado> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
@@ -50,7 +52,16 @@ export async function gerarRelatorioConsultor(
 
   const client = new Anthropic({ apiKey });
 
-  const resumoDados = montarResumoLegivel(dados, empresaNome);
+  let resumoDados = montarResumoLegivel(dados, empresaNome);
+
+  if (empresaId) {
+    const [anexosFin, anexosEst] = await Promise.all([
+      montarContextoAnexos(empresaId, "financeiro"),
+      montarContextoAnexos(empresaId, "estoque"),
+    ]);
+    const extras = [anexosFin, anexosEst].filter(Boolean).join("\n\n");
+    if (extras) resumoDados += `\n\n${extras}`;
+  }
 
   const response = await client.messages.create({
     model: "claude-sonnet-4-5",

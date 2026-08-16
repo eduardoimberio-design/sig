@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { CardAnexos } from "@/components/anexos";
 import {
   moeda,
   percentual,
@@ -28,6 +29,13 @@ export default async function FinanceiroPage({
 
   if (!empresa) redirect("/login");
   if (!empresa.tem_acesso) redirect("/painel/acesso");
+
+  const { data: anexos } = await supabase
+    .from("anexos_contexto")
+    .select("id, nome_arquivo, tipo_arquivo, descricao, resumo_ia, status, created_at")
+    .eq("modulo", "financeiro")
+    .neq("status", "descartado")
+    .order("created_at", { ascending: false });
 
   const inicio = searchParams.inicio ?? primeiroDiaMes();
   const fim = searchParams.fim ?? hoje();
@@ -317,6 +325,8 @@ export default async function FinanceiroPage({
 
       {/* Lançamentos */}
       <PainelLancamentos />
+
+      <CardAnexos modulo="financeiro" anexos={(anexos ?? []) as any} />
     </div>
   );
 }

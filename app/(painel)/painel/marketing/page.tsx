@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { CardAnexos } from "@/components/anexos";
 import { FormGerarConteudo, ListaConteudo, PainelConfigMarketing } from "./cliente";
 
 export const dynamic = "force-dynamic";
@@ -18,6 +19,13 @@ export default async function MarketingPage({
 
   if (!empresa) redirect("/login");
   if (!empresa.tem_acesso) redirect("/painel/acesso");
+
+  const { data: anexos } = await supabase
+    .from("anexos_contexto")
+    .select("id, nome_arquivo, tipo_arquivo, descricao, resumo_ia, status, created_at")
+    .eq("modulo", "marketing")
+    .neq("status", "descartado")
+    .order("created_at", { ascending: false });
 
   const [{ data: conteudos }, { data: config }, { data: produtos }] =
     await Promise.all([
@@ -78,6 +86,8 @@ export default async function MarketingPage({
           <ListaConteudo conteudos={conteudos ?? []} />
         </>
       )}
+
+      <CardAnexos modulo="marketing" anexos={(anexos ?? []) as any} />
     </div>
   );
 }

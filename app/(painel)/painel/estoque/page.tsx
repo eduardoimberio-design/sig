@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { CardAnexos } from "@/components/anexos";
 import { moeda, percentual } from "@/lib/formatters";
 import {
   PainelInsumos,
@@ -20,6 +21,13 @@ export default async function EstoquePage() {
 
   if (!empresa) redirect("/login");
   if (!empresa.tem_acesso) redirect("/painel/acesso");
+
+  const { data: anexos } = await supabase
+    .from("anexos_contexto")
+    .select("id, nome_arquivo, tipo_arquivo, descricao, resumo_ia, status, created_at")
+    .eq("modulo", "estoque")
+    .neq("status", "descartado")
+    .order("created_at", { ascending: false });
 
   const [
     { data: cmv },
@@ -195,6 +203,8 @@ export default async function EstoquePage() {
 
       {/* Equipamentos */}
       <PainelEquipamentos equipamentos={equipamentos ?? []} />
+
+      <CardAnexos modulo="estoque" anexos={(anexos ?? []) as any} />
     </div>
   );
 }

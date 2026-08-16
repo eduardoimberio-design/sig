@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { CardAnexos } from "@/components/anexos";
 import { GradeEscala, PainelAusencias, PainelTreinamentos } from "./cliente";
 
 export const dynamic = "force-dynamic";
@@ -14,6 +15,13 @@ export default async function EquipePage() {
 
   if (!empresa) redirect("/login");
   if (!empresa.tem_acesso) redirect("/painel/acesso");
+
+  const { data: anexos } = await supabase
+    .from("anexos_contexto")
+    .select("id, nome_arquivo, tipo_arquivo, descricao, resumo_ia, status, created_at")
+    .eq("modulo", "equipe")
+    .neq("status", "descartado")
+    .order("created_at", { ascending: false });
 
   const [
     { data: colaboradores },
@@ -112,6 +120,8 @@ export default async function EquipePage() {
           participantesMap={Object.fromEntries(participantesMap)}
         />
       </section>
+
+      <CardAnexos modulo="equipe" anexos={(anexos ?? []) as any} />
     </div>
   );
 }

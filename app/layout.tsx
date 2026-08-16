@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { Space_Grotesk, Inter, IBM_Plex_Mono } from "next/font/google";
+import { createClient } from "@/lib/supabase/server";
+import { Joao } from "@/components/joao";
 import "./globals.css";
 
 // Space Grotesk: grotesca com desenho levemente estranho nos
@@ -31,11 +33,18 @@ export const metadata: Metadata = {
     "Hub de agentes de IA para gestão de pequenos negócios de food service.",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  // O João muda de tom conforme quem está do outro lado: visitante
+  // recebe explicação do produto, cliente recebe orientação de uso.
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
   return (
     <html
       lang="pt-BR"
@@ -43,6 +52,7 @@ export default function RootLayout({
     >
       <body className="bg-base-bg text-white font-sans antialiased">
         {children}
+        <Joao logado={!!user} />
       </body>
     </html>
   );

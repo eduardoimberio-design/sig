@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { CardAnexos } from "@/components/anexos";
 import { FormNovoCaso, ListaCasos } from "./cliente";
 
 export const dynamic = "force-dynamic";
@@ -18,6 +19,13 @@ export default async function ConselheiroPage() {
   const { data: casos } = await supabase
     .from("casos_conselheiro")
     .select("*")
+    .order("created_at", { ascending: false });
+
+  const { data: anexos } = await supabase
+    .from("anexos_contexto")
+    .select("id, nome_arquivo, tipo_arquivo, descricao, resumo_ia, status, created_at")
+    .eq("modulo", "conselheiro")
+    .neq("status", "descartado")
     .order("created_at", { ascending: false });
 
   const temChaveIA = !!process.env.ANTHROPIC_API_KEY;
@@ -53,6 +61,8 @@ export default async function ConselheiroPage() {
       <FormNovoCaso habilitado={temChaveIA} />
 
       <ListaCasos casos={casos ?? []} />
+
+      <CardAnexos modulo="conselheiro" anexos={(anexos ?? []) as any} />
     </div>
   );
 }

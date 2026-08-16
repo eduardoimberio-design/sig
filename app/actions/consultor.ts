@@ -46,7 +46,7 @@ export async function gerarRelatorio(
 
   let relatorio;
   try {
-    relatorio = await gerarRelatorioConsultor(dados, empresa?.nome ?? "seu negócio");
+    relatorio = await gerarRelatorioConsultor(dados, empresa?.nome ?? "seu negócio", vinculo.empresa_id);
   } catch (e) {
     return {
       erro: e instanceof Error ? e.message : "Falha ao gerar o relatório.",

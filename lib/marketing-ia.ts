@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { montarContextoAnexos } from "@/lib/anexos-contexto";
 
 export interface SlideCarrossel {
   titulo: string;
@@ -67,6 +68,8 @@ export async function gerarConteudoMarketing(params: {
           .join("\n")
       : "Nenhum produto cadastrado ainda — crie um conteúdo genérico sobre o restaurante, sem citar prato específico.";
 
+  const anexos = await montarContextoAnexos(params.empresaId, "marketing");
+
   const client = new Anthropic({ apiKey });
 
   const userPrompt = `Restaurante: ${params.empresaNome}
@@ -80,6 +83,7 @@ ${catalogoTexto}
 Tipo de conteúdo solicitado: ${params.tipo}
 Tema/ocasião: ${params.tema}
 
+${anexos ? `\n${anexos}\n` : ""}
 ${params.tipo === "carrossel" ? "Gere entre 4 e 6 slides." : "Gere slides: null."}`;
 
   const response = await client.messages.create({

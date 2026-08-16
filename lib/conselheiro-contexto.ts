@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { montarContextoAnexos } from "@/lib/anexos-contexto";
 
 /**
  * Resumo leve do negócio — não é a análise completa do Consultor
@@ -63,6 +64,9 @@ export async function montarContextoNegocio(empresaId: string): Promise<string> 
       `Produtos com CMV acima de 35%: ${produtosCmvAlto.map((p: any) => `${p.produto_nome} (${Number(p.cmv_percentual).toFixed(1)}%)`).join(", ")}.`
     );
   }
+
+  const anexos = await montarContextoAnexos(empresaId, "conselheiro");
+  if (anexos) partes.push("\n" + anexos);
 
   return partes.length > 0
     ? partes.join("\n")
