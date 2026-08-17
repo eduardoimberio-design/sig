@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import Link from "next/link";
 import { useFormState } from "react-dom";
 import {
   enviarAnexo,
@@ -63,9 +64,27 @@ export function CardAnexos({
         )}
       </div>
       <p className="mb-5 text-sm text-white/45">
-        Envie print, foto ou PDF para o agente entender melhor sua situação.{" "}
+        Envie arquivo para o agente entender melhor sua situação.{" "}
         {DICA_POR_MODULO[modulo] ?? ""}
       </p>
+
+      {modulo === "estoque" && (
+        <div className="mb-5 border-l-2 border-alerta bg-alerta/5 py-3 pl-4 pr-3">
+          <p className="text-sm text-white/60">
+            O que você envia aqui serve de contexto para o agente —{" "}
+            <span className="text-alerta">não dá entrada no estoque</span>. Para
+            lançar uma nota de compra e vincular os itens aos insumos, use a
+            tela de leitura de documentos.
+          </p>
+          <Link
+            href="/painel/estoque/documentos"
+            className="rotulo mt-3 inline-block border border-cyan/40 px-3 py-1.5
+                       text-xs text-cyan transition-colors hover:bg-cyan hover:text-base-bg"
+          >
+            Ir para leitura de documentos
+          </Link>
+        </div>
+      )}
 
       <form
         ref={formRef}
