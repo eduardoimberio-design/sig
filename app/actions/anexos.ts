@@ -9,6 +9,47 @@ import {
   type ModuloAnexo,
 } from "@/lib/documentos/leitor-contexto";
 
+import { lerXmlNfe } from "@/lib/documentos/xml-nfe";
+
+/**
+ * Converte o XML de NF-e em texto legível para o agente. A leitura
+ * é exata (vem da estrutura oficial da SEFAZ), então aqui não há
+ * risco de número errado — diferente da leitura por imagem.
+ */
+function resumirXmlNfe(xmlTexto: string): string {
+  const nota = lerXmlNfe(xmlTexto);
+
+  const linhas: string[] = [];
+
+  if (nota.fornecedorNome) linhas.push(`Fornecedor: ${nota.fornecedorNome}`);
+  if (nota.numeroNota) linhas.push(`Nota fiscal nº ${nota.numeroNota}`);
+  if (nota.dataEmissao) {
+    const [ano, mes, dia] = nota.dataEmissao.split("-");
+    linhas.push(`Emissão: ${dia}/${mes}/${ano}`);
+  }
+  if (nota.valorTotal != null) {
+    linhas.push(`Valor total: R$ ${nota.valorTotal.toFixed(2).replace(".", ",")}`);
+  }
+
+  if (nota.itens.length > 0) {
+    linhas.push("");
+    linhas.push("Itens:");
+    for (const item of nota.itens) {
+      const unidade = item.unidade ? ` ${item.unidade}` : "";
+      linhas.push(
+        `- ${item.descricao}: ${item.quantidade}${unidade} a R$ ` +
+          `${item.valorUnitario.toFixed(2).replace(".", ",")} ` +
+          `(total R$ ${item.valorTotal.toFixed(2).replace(".", ",")})`
+      );
+    }
+  }
+
+  linhas.push("");
+  linhas.push("Leitura exata, extraída direto do XML da nota fiscal.");
+
+  return linhas.join("\n");
+}
+
 export type EstadoForm = { erro?: string; sucesso?: string };
 
 const MODULOS: ModuloAnexo[] = [
@@ -79,6 +120,9 @@ export async function enviarAnexo(
   }
 
   const extensao = arquivo.name.split(".").pop()?.toLowerCase() ?? "";
+
+  const ehXml = extensao === "xml";
+
   const mediaPorExtensao: Record<
     string,
     "application/pdf" | "image/jpeg" | "image/png" | "image/webp"
@@ -90,8 +134,9 @@ export async function enviarAnexo(
     webp: "image/webp",
   };
   const mediaType = mediaPorExtensao[extensao];
-  if (!mediaType) {
-    return { erro: "Formato não suportado. Envie PDF, JPG, PNG ou WEBP." };
+
+  if (!ehXml && !mediaType) {
+    return { erro: "Formato não suportado. Envie XML, PDF, JPG, PNG ou WEBP." };
   }
 
   const bytes = Buffer.from(await arquivo.arrayBuffer());
@@ -111,12 +156,19 @@ export async function enviarAnexo(
   let avisoLeitura: string | null = null;
 
   try {
-    resumo = await lerAnexoContexto({
-      base64: bytes.toString("base64"),
-      mediaType,
-      modulo,
-      descricao,
-    });
+    if (ehXml) {
+      // XML de NF-e é leitura exata: nada de IA, nada de erro de
+      // interpretação, custo zero. Sempre preferível quando existe.
+      const texto = new TextDecoder("utf-8").decode(bytes);
+      resumo = resumirXmlNfe(texto);
+    } else {
+      resumo = await lerAnexoContexto({
+        base64: bytes.toString("base64"),
+        mediaType: mediaType!,
+        modulo,
+        descricao,
+      });
+    }
   } catch (e: any) {
     // O arquivo fica guardado mesmo se a leitura falhar. O cliente
     // pode escrever o resumo à mão em vez de perder o envio.
@@ -129,7 +181,11 @@ export async function enviarAnexo(
     modulo,
     nome_arquivo: arquivo.name,
     storage_path: caminho,
-    tipo_arquivo: mediaType === "application/pdf" ? "pdf" : "imagem",
+    tipo_arquivo: ehXml
+      ? "xml"
+      : mediaType === "application/pdf"
+        ? "pdf"
+        : "imagem",
     tamanho_bytes: arquivo.size,
     descricao,
     resumo_ia: resumo,

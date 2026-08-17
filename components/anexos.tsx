@@ -23,8 +23,8 @@ export type Anexo = {
 };
 
 const DICA_POR_MODULO: Record<string, string> = {
-  financeiro: "Extrato, boleto, recibo, print de maquininha.",
-  estoque: "Nota de compra, tabela de fornecedor, foto da câmara.",
+  financeiro: "XML de nota fiscal, extrato, boleto, recibo, print de maquininha.",
+  estoque: "XML de nota fiscal, tabela de fornecedor, foto da câmara.",
   marketing: "Print do painel do Instagram, do delivery, foto do cardápio.",
   equipe: "Escala, atestado, print de combinação de troca de turno.",
   conselheiro: "Print de conversa, reclamação de cliente, relatório do problema.",
@@ -99,13 +99,13 @@ export function CardAnexos({
             {nomeArquivo ?? "Clique para selecionar um arquivo"}
           </span>
           <span className="mt-2 text-xs text-white/35">
-            PDF, JPG, PNG ou WEBP — até 15MB
+            XML de nota fiscal, PDF, JPG, PNG ou WEBP — até 15MB
           </span>
           <input
             id={`arquivo-${modulo}`}
             name="arquivo"
             type="file"
-            accept=".pdf,.jpg,.jpeg,.png,.webp"
+            accept=".xml,.pdf,.jpg,.jpeg,.png,.webp"
             className="hidden"
             onChange={(e) =>
               setNomeArquivo(e.target.files?.[0]?.name ?? null)
