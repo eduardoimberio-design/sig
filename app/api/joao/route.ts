@@ -3,6 +3,7 @@ import { createHash } from "crypto";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { responderJoao, type MensagemJoao } from "@/lib/joao-ia";
+import { registrarEvento } from "@/lib/eventos";
 
 export const dynamic = "force-dynamic";
 
@@ -149,6 +150,13 @@ export async function POST(req: Request) {
   } catch (e: any) {
     // Sem isto, a falha morre em silêncio e não há como diagnosticar.
     console.error("[João] falha ao responder:", e?.message ?? e);
+
+    await registrarEvento({
+      origem: "joao",
+      tipo: "ia_falhou",
+      mensagem: e?.message ?? "Falha ao responder.",
+      detalhe: { modo, tela: telaAtual },
+    });
 
     return NextResponse.json(
       {

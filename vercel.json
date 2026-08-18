@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/sentinela",
+      "schedule": "0 10 * * *"
+    }
+  ]
+}

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { registrarEvento } from "@/lib/eventos";
 import {
   lerAnexoContexto,
   type ModuloAnexo,
@@ -174,6 +175,14 @@ export async function enviarAnexo(
     // pode escrever o resumo à mão em vez de perder o envio.
     avisoLeitura =
       e?.message ?? "O arquivo foi guardado, mas a leitura automática falhou.";
+
+    await registrarEvento({
+      origem: "anexos",
+      tipo: "leitura_falhou",
+      mensagem: avisoLeitura ?? "Falha na leitura do anexo.",
+      empresaId,
+      detalhe: { modulo, extensao },
+    });
   }
 
   const { error: erroInsert } = await admin.from("anexos_contexto").insert({

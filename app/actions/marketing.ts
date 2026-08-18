@@ -1,4 +1,5 @@
 "use server";
+import { registrarEvento } from "@/lib/eventos";
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -68,6 +69,12 @@ export async function gerarConteudo(
       },
     });
   } catch (e) {
+    await registrarEvento({
+      origem: "marketing",
+      tipo: "ia_falhou",
+      mensagem: e instanceof Error ? e.message : "Falha ao gerar conteúdo.",
+      empresaId,
+    });
     return {
       erro: e instanceof Error ? e.message : "Falha ao gerar conteúdo.",
     };

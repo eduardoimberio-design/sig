@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { verificarPagamento } from "@/lib/infinitepay";
+import { registrarEvento } from "@/lib/eventos";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -70,6 +71,13 @@ export async function POST(req: NextRequest) {
     });
   } catch {
     // Erro de rede/API: devolvemos 400 para a InfinitePay reenviar depois.
+    await registrarEvento({
+      origem: "pagamento",
+      tipo: "pagamento_falhou",
+      severidade: "critico",
+      mensagem: "Não consegui verificar o pagamento junto à InfinitePay.",
+      detalhe: { order_nsu },
+    });
     return NextResponse.json(
       { success: false, message: "Falha ao verificar pagamento" },
       { status: 400 }

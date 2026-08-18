@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { coletarAnaliseEstruturada } from "@/lib/consultor-dados";
 import { gerarRelatorioConsultor } from "@/lib/consultor-ia";
+import { registrarEvento } from "@/lib/eventos";
 
 export type EstadoForm = { erro?: string; sucesso?: string };
 
@@ -48,6 +49,13 @@ export async function gerarRelatorio(
   try {
     relatorio = await gerarRelatorioConsultor(dados, empresa?.nome ?? "seu negócio", vinculo.empresa_id);
   } catch (e) {
+    await registrarEvento({
+      origem: "consultor",
+      tipo: "ia_falhou",
+      mensagem: e instanceof Error ? e.message : "Falha ao gerar o relatório.",
+      empresaId: vinculo.empresa_id,
+      detalhe: { periodo: `${inicio} a ${fim}` },
+    });
     return {
       erro: e instanceof Error ? e.message : "Falha ao gerar o relatório.",
     };

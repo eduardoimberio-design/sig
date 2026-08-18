@@ -56,6 +56,22 @@ export default async function AdminPage() {
     .eq("autor", "cliente")
     .eq("lida", false);
 
+  // Estado do Sentinela: último relatório e falhas das últimas 24h.
+  const ontem = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+  const [{ data: ultimoResumo }, { count: falhasRecentes }] = await Promise.all([
+    supabase
+      .from("resumos_sentinela")
+      .select("referencia, resumo, total_eventos, total_criticos, lido")
+      .order("referencia", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from("eventos_sistema")
+      .select("id", { count: "exact", head: true })
+      .gte("created_at", ontem),
+  ]);
+
   return (
     <div className="min-h-screen">
       <header className="border-b border-base-border">
@@ -106,6 +122,53 @@ export default async function AdminPage() {
             rotulo="Receita total"
             valor={moeda(metricas?.receita_total ?? 0)}
           />
+        </section>
+
+        {/* Sentinela — vigia técnico. O alerta só aparece quando há
+            ocorrência de verdade, para não virar ruído ignorado. */}
+        <section>
+          <a
+            href="/admin/sentinela"
+            className={`painel block p-6 transition-colors ${
+              (falhasRecentes ?? 0) > 0
+                ? "border-alerta/40 hover:border-alerta"
+                : "hover:border-cyan/40"
+            }`}
+          >
+            <div className="flex items-baseline justify-between gap-4">
+              <span className="rotulo text-cyan">Sentinela</span>
+              {(falhasRecentes ?? 0) > 0 ? (
+                <span className="rotulo border border-alerta px-2 py-0.5 text-xs text-alerta">
+                  {falhasRecentes} ocorrência(s) em 24h
+                </span>
+              ) : (
+                <span className="text-xs text-positivo">
+                  Nenhuma falha em 24h
+                </span>
+              )}
+            </div>
+
+            {ultimoResumo ? (
+              <>
+                <p className="mt-3 line-clamp-3 text-sm text-white/60">
+                  {ultimoResumo.resumo}
+                </p>
+                <p className="mt-3 text-xs text-white/30">
+                  Relatório de{" "}
+                  {new Date(
+                    ultimoResumo.referencia + "T12:00:00"
+                  ).toLocaleDateString("pt-BR")}
+                  {!ultimoResumo.lido && (
+                    <span className="text-alerta"> · não lido</span>
+                  )}
+                </p>
+              </>
+            ) : (
+              <p className="mt-3 text-sm text-white/45">
+                Nenhum relatório ainda. O primeiro sai amanhã de manhã.
+              </p>
+            )}
+          </a>
         </section>
 
         <section>
