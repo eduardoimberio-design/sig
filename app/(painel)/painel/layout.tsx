@@ -32,6 +32,13 @@ export default async function PainelLayout({
     .eq("auth_user_id", user.id)
     .maybeSingle();
 
+  // Mensagens do SIG que o cliente ainda não abriu.
+  const { count: naoLidas } = await supabase
+    .from("mensagens_suporte")
+    .select("id", { count: "exact", head: true })
+    .eq("autor", "sig")
+    .eq("lida", false);
+
   const avisoExpiracao =
     !empresa.acesso_vitalicio &&
     empresa.tem_acesso &&
@@ -55,14 +62,17 @@ export default async function PainelLayout({
                 Admin
               </Link>
             )}
-            <a
-              href="https://wa.me/5511985503734"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-white/60 hover:text-cyan"
+            <Link
+              href="/painel/suporte"
+              className="flex items-baseline gap-2 text-white/60 hover:text-cyan"
             >
               Falar com o SIG
-            </a>
+              {naoLidas ? (
+                <span className="rotulo border border-alerta px-1.5 text-xs text-alerta">
+                  {naoLidas}
+                </span>
+              ) : null}
+            </Link>
             <Link href="/painel/acesso" className="text-white/60 hover:text-ambar">
               {empresa.acesso_vitalicio
                 ? "Acesso vitalício"

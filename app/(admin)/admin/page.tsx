@@ -49,6 +49,13 @@ export default async function AdminPage() {
       supabase.rpc("admin_listar_vouchers"),
     ]);
 
+  // Mensagens de cliente ainda sem resposta, para o contador do topo.
+  const { count: mensagensPendentes } = await supabase
+    .from("mensagens_suporte")
+    .select("id", { count: "exact", head: true })
+    .eq("autor", "cliente")
+    .eq("lida", false);
+
   return (
     <div className="min-h-screen">
       <header className="border-b border-base-border">
@@ -58,6 +65,17 @@ export default async function AdminPage() {
             <span className="rotulo text-cyan">Administração</span>
           </div>
           <div className="flex items-center gap-5 text-sm">
+            <a
+              href="/admin/suporte"
+              className="flex items-baseline gap-2 text-white/50 hover:text-cyan"
+            >
+              Suporte
+              {mensagensPendentes ? (
+                <span className="rotulo border border-alerta px-1.5 text-xs text-alerta">
+                  {mensagensPendentes}
+                </span>
+              ) : null}
+            </a>
             <a href="/painel" className="text-white/50 hover:text-white/80">
               Meu painel
             </a>
