@@ -37,7 +37,71 @@ export function Joao({ logado }: { logado: boolean }) {
   const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [interagiu, setInteragiu] = useState(false);
+  const [ouvindo, setOuvindo] = useState(false);
+  const [suportaVoz, setSuportaVoz] = useState(false);
+  const reconhecimentoRef = useRef<any>(null);
   const fimRef = useRef<HTMLDivElement>(null);
+
+  // Reconhecimento de fala é nativo do navegador — nenhuma chamada de
+  // API, nenhum custo. Só existe no Chrome, Edge e derivados, então o
+  // botão só aparece onde realmente funciona.
+  useEffect(() => {
+    const Reconhecimento =
+      (window as any).SpeechRecognition ||
+      (window as any).webkitSpeechRecognition;
+    setSuportaVoz(!!Reconhecimento);
+  }, []);
+
+  function alternarVoz() {
+    if (ouvindo) {
+      reconhecimentoRef.current?.stop();
+      return;
+    }
+
+    const Reconhecimento =
+      (window as any).SpeechRecognition ||
+      (window as any).webkitSpeechRecognition;
+    if (!Reconhecimento) return;
+
+    const rec = new Reconhecimento();
+    rec.lang = "pt-BR";
+    rec.continuous = false;
+    rec.interimResults = true;
+
+    let finalizado = "";
+
+    rec.onresult = (evento: any) => {
+      let parcial = "";
+      for (let i = evento.resultIndex; i < evento.results.length; i++) {
+        const trecho = evento.results[i][0].transcript;
+        if (evento.results[i].isFinal) finalizado += trecho;
+        else parcial += trecho;
+      }
+      // Mostra enquanto fala, para a pessoa ver que está funcionando.
+      setTexto((finalizado + parcial).trim().slice(0, 1000));
+    };
+
+    rec.onerror = (evento: any) => {
+      setOuvindo(false);
+      if (evento.error === "not-allowed") {
+        setErro(
+          "O navegador bloqueou o microfone. Libere o acesso nas permissões do site para usar por voz."
+        );
+      } else if (evento.error === "no-speech") {
+        setErro("Não ouvi nada. Toque no microfone e fale mais perto.");
+      } else {
+        setErro("Não consegui usar o microfone agora. Pode escrever?");
+      }
+    };
+
+    rec.onend = () => setOuvindo(false);
+
+    reconhecimentoRef.current = rec;
+    setErro(null);
+    setInteragiu(true);
+    setOuvindo(true);
+    rec.start();
+  }
 
   // Espelho da interação em ref: o timer de auto-recolher é criado uma
   // vez só e não enxergaria a atualização do state.
@@ -88,6 +152,17 @@ export function Joao({ logado }: { logado: boolean }) {
     }
   }, [aberto, falas.length, logado]);
 
+  // Microfone nunca fica ligado com o chat fechado.
+  useEffect(() => {
+    if (!aberto && reconhecimentoRef.current) {
+      reconhecimentoRef.current.stop();
+    }
+  }, [aberto]);
+
+  useEffect(() => {
+    return () => reconhecimentoRef.current?.stop();
+  }, []);
+
   useEffect(() => {
     fimRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [falas, carregando]);
@@ -95,6 +170,9 @@ export function Joao({ logado }: { logado: boolean }) {
   async function enviar(pergunta: string) {
     const limpa = pergunta.trim();
     if (!limpa || carregando) return;
+
+    // Se estava gravando, para: a pergunta já foi enviada.
+    reconhecimentoRef.current?.stop();
 
     setInteragiu(true);
     setErro(null);
@@ -237,13 +315,29 @@ export function Joao({ logado }: { logado: boolean }) {
 
           <div className="border-t border-base-border p-3">
             <div className="flex gap-2">
+              {suportaVoz && (
+                <button
+                  onClick={alternarVoz}
+                  aria-label={ouvindo ? "Parar de gravar" : "Falar"}
+                  title={ouvindo ? "Parar de gravar" : "Perguntar por voz"}
+                  className={`border px-3 transition-colors ${
+                    ouvindo
+                      ? "border-negativo bg-negativo/10 text-negativo"
+                      : "border-base-border text-white/40 hover:border-cyan hover:text-cyan"
+                  }`}
+                >
+                  {ouvindo ? "■" : "●"}
+                </button>
+              )}
               <input
                 value={texto}
                 onChange={(e) => setTexto(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") enviar(texto);
                 }}
-                placeholder="Pergunte alguma coisa"
+                placeholder={
+                  ouvindo ? "Ouvindo… pode falar" : "Pergunte alguma coisa"
+                }
                 maxLength={1000}
                 className="campo flex-1 px-3 py-2 text-sm placeholder-white/25"
               />
@@ -256,6 +350,11 @@ export function Joao({ logado }: { logado: boolean }) {
                 Enviar
               </button>
             </div>
+            {ouvindo && (
+              <p className="mt-2 text-xs text-white/35">
+                Fale e depois confira o texto antes de enviar.
+              </p>
+            )}
           </div>
         </div>
       )}
