@@ -52,7 +52,11 @@ export default async function AdminConversaPage({
       </div>
 
       <section className="painel p-6">
-        <Conversa mensagens={(mensagens ?? []) as any} ladoDoSig />
+        <Conversa
+          mensagens={(mensagens ?? []) as any}
+          ladoDoSig
+          nomeCliente={empresa?.nome}
+        />
         <FormRespostaSig empresaId={params.empresaId} />
       </section>
     </main>

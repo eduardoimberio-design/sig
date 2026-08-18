@@ -34,22 +34,6 @@ export default async function SuportePage() {
         </p>
       </div>
 
-      <div className="painel p-5">
-        <p className="text-sm text-white/55">
-          Precisa de resposta imediata? Chame no WhatsApp — mas prefira esta
-          tela para assuntos que exigem histórico.
-        </p>
-        <a
-          href="https://wa.me/5511985503734"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="rotulo mt-3 inline-block border border-base-border px-4 py-2
-                     text-xs text-white/60 transition-colors hover:border-cyan hover:text-cyan"
-        >
-          Abrir WhatsApp
-        </a>
-      </div>
-
       <FormMensagemCliente />
 
       <section>

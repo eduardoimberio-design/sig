@@ -31,9 +31,11 @@ function quando(iso: string) {
 export function Conversa({
   mensagens,
   ladoDoSig = false,
+  nomeCliente,
 }: {
   mensagens: Mensagem[];
   ladoDoSig?: boolean;
+  nomeCliente?: string;
 }) {
   if (mensagens.length === 0) {
     return (
@@ -49,6 +51,14 @@ export function Conversa({
         // "Meu lado" muda conforme quem está olhando a tela.
         const meu = ladoDoSig ? m.autor === "sig" : m.autor === "cliente";
 
+        // Quem assina cada mensagem também depende de quem lê: o admin
+        // precisa ver o nome do cliente, não "Você".
+        const assinatura = meu
+          ? "Você"
+          : m.autor === "sig"
+            ? (m.autor_nome ?? "SIG")
+            : (nomeCliente ?? m.autor_nome ?? "Cliente");
+
         return (
           <div key={m.id} className={meu ? "pl-10" : "pr-10"}>
             <div
@@ -63,8 +73,7 @@ export function Conversa({
               </p>
             </div>
             <p className="mt-1.5 text-xs text-white/30">
-              {m.autor === "sig" ? (m.autor_nome ?? "SIG") : "Você"} ·{" "}
-              {quando(m.created_at)}
+              {assinatura} · {quando(m.created_at)}
             </p>
           </div>
         );
