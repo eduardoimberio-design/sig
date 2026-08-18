@@ -29,8 +29,9 @@ export default async function SuportePage() {
         <p className="rotulo text-cyan">Falar com o SIG</p>
         <h1 className="titulo mt-2 text-3xl">Suporte</h1>
         <p className="mt-2 max-w-2xl text-sm text-white/50">
-          Escreva aqui e alguém do SIG responde. Fica tudo registrado nesta
-          conversa, então dá para retomar depois sem repetir o assunto.
+          Escreva sua dúvida ou questão aqui e o suporte do SIG responderá o
+          mais rápido possível. Fica tudo registrado nesta conversa, então dá
+          para retomar depois sem repetir o assunto.
         </p>
       </div>
 
