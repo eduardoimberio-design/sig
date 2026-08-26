@@ -244,3 +244,55 @@ export async function resgatarVoucher(
       : "Voucher ativado com sucesso.",
   };
 }
+
+const schemaCompletar = z.object({
+  nome_empresa: z.string().trim().min(2, "Informe o nome do estabelecimento."),
+  nome_usuario: z.string().trim().min(2, "Informe seu nome."),
+  telefone: z.string().trim().optional(),
+});
+
+/**
+ * Completa o cadastro de quem JÁ está logado mas ainda não tem
+ * estabelecimento vinculado.
+ *
+ * Existe separado do `cadastrar` por um motivo concreto: aquele
+ * formulário pedia e-mail e senha de novo e, havendo sessão ativa,
+ * ignorava o que fosse digitado — vinculando a empresa à conta logada.
+ * Quem digitasse outro e-mail acabava com a empresa na conta errada.
+ */
+export async function completarCadastro(
+  _estado: EstadoForm,
+  formData: FormData
+): Promise<EstadoForm> {
+  const parsed = schemaCompletar.safeParse({
+    nome_empresa: formData.get("nome_empresa"),
+    nome_usuario: formData.get("nome_usuario"),
+    telefone: formData.get("telefone"),
+  });
+
+  if (!parsed.success) return { erro: parsed.error.issues[0].message };
+
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { erro: "Sessão expirada. Entre novamente." };
+
+  const { data: resultado, error } = await supabase.rpc(
+    "criar_empresa_onboarding",
+    {
+      p_nome_empresa: parsed.data.nome_empresa,
+      p_nome_usuario: parsed.data.nome_usuario,
+      p_telefone: parsed.data.telefone || null,
+    }
+  );
+
+  if (error || !resultado?.sucesso) {
+    console.error("[SIG] Falha ao completar cadastro:", error?.message);
+    return { erro: "Não consegui concluir o cadastro. Tente de novo." };
+  }
+
+  revalidatePath("/", "layout");
+  redirect("/painel");
+}

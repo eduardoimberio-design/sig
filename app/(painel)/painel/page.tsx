@@ -2,6 +2,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { moeda, percentual, primeiroDiaMes, hoje } from "@/lib/formatters";
+import { PainelDesempenho } from "@/components/desempenho";
+import { montarIndicadores } from "@/lib/desempenho";
 
 export const dynamic = "force-dynamic";
 
@@ -91,6 +93,33 @@ export default async function PainelPage() {
       .eq("status", "aguardando_revisao"),
   ]);
 
+  // Mesmo intervalo de dias do mês anterior, para comparar maçã com
+  // maçã: comparar 18 dias contra um mês fechado enganaria.
+  const hojeData = new Date(fim);
+  const inicioAnterior = new Date(hojeData.getFullYear(), hojeData.getMonth() - 1, 1);
+  const fimAnterior = new Date(
+    hojeData.getFullYear(),
+    hojeData.getMonth() - 1,
+    hojeData.getDate()
+  );
+
+  const [{ data: dreAnterior }, { data: contasAtrasadas }] = await Promise.all([
+    supabase.rpc("dre_periodo", {
+      p_empresa_id: empresa.id,
+      p_inicio: inicioAnterior.toISOString().slice(0, 10),
+      p_fim: fimAnterior.toISOString().slice(0, 10),
+    }),
+    supabase
+      .from("contas_pagar")
+      .select("valor")
+      .eq("status", "atrasado"),
+  ]);
+
+  const totalAtrasado = (contasAtrasadas ?? []).reduce(
+    (soma: number, c: any) => soma + Number(c.valor ?? 0),
+    0
+  );
+
   const metaCmv = Number(config?.meta_cmv_percentual ?? 30);
   const temDadosFinanceiros = dre && Number(dre.receita_bruta) > 0;
   const cmvAcimaDaMeta =
@@ -137,6 +166,16 @@ export default async function PainelPage() {
     });
   }
 
+  const desempenho = temDadosFinanceiros
+    ? montarIndicadores({
+        dre,
+        dreAnterior,
+        metaCmv,
+        contasAtrasadas: (contasAtrasadas ?? []).length,
+        valorAtrasado: totalAtrasado,
+      })
+    : { indicadores: [], leitura: "" };
+
   return (
     <div className="space-y-10">
       <header>
@@ -154,17 +193,14 @@ export default async function PainelPage() {
       {temDadosFinanceiros && (
         <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Indicador rotulo="Faturamento" valor={moeda(dre.receita_bruta)} />
-          <Indicador
-            rotulo="CMV"
-            valor={percentual(dre.cmv_percentual)}
-            apoio={`Meta ${percentual(metaCmv)}`}
-            alerta={cmvAcimaDaMeta}
-          />
           <Indicador rotulo="Ticket médio" valor={moeda(dre.ticket_medio)} />
+          <Indicador
+            rotulo="Atendimentos"
+            valor={String(dre.num_atendimentos ?? 0)}
+          />
           <Indicador
             rotulo="Lucro líquido"
             valor={moeda(dre.lucro_liquido)}
-            apoio={`Margem ${percentual(dre.margem_liquida)}`}
             alerta={Number(dre.lucro_liquido) < 0}
           />
         </section>
@@ -233,6 +269,13 @@ export default async function PainelPage() {
           ))}
         </div>
       </section>
+
+      {/* Desempenho — abaixo dos agentes, como painel de leitura rápida */}
+      <PainelDesempenho
+        indicadores={desempenho.indicadores}
+        leituraGeral={desempenho.leitura}
+        temDados={!!temDadosFinanceiros}
+      />
     </div>
   );
 }

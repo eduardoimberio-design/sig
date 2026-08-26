@@ -33,23 +33,27 @@ export default function LoginPage() {
             autoComplete="email"
             placeholder="voce@restaurante.com.br"
           />
-          <Campo
-            label="Senha"
-            name="senha"
-            type="password"
-            autoComplete="current-password"
-          />
+          <div>
+            <Campo
+              label="Senha"
+              name="senha"
+              type="password"
+              autoComplete="current-password"
+            />
+            <div className="mt-2 text-right">
+              <Link
+                href="/recuperar-senha"
+                className="text-xs text-cyan/70 hover:text-cyan hover:underline"
+              >
+                Esqueci minha senha
+              </Link>
+            </div>
+          </div>
 
           <div className="pt-2">
             <BotaoSubmit>Entrar</BotaoSubmit>
           </div>
         </form>
-
-        <p className="mt-6 text-center text-sm">
-          <Link href="/recuperar-senha" className="text-white/40 hover:text-cyan">
-            Esqueci minha senha
-          </Link>
-        </p>
 
         <p className="mt-3 text-center text-sm text-white/50">
           Ainda não tem conta?{" "}
