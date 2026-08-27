@@ -56,6 +56,11 @@ export default async function AdminPage() {
     .eq("autor", "cliente")
     .eq("lida", false);
 
+  // Leads do diagnóstico ainda não contatados, para o contador do topo.
+  const { data: leadsDiagnosticoNovos } = await supabase.rpc(
+    "admin_contar_leads_diagnostico_novos"
+  );
+
   // Estado do Sentinela: último relatório e falhas das últimas 24h.
   const ontem = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
@@ -81,6 +86,17 @@ export default async function AdminPage() {
             <span className="rotulo text-cyan">Administração</span>
           </div>
           <div className="flex items-center gap-5 text-sm">
+            <a
+              href="/admin/diagnosticos"
+              className="flex items-baseline gap-2 text-white/50 hover:text-cyan"
+            >
+              Leads
+              {leadsDiagnosticoNovos ? (
+                <span className="rotulo border border-cyan px-1.5 text-xs text-cyan">
+                  {leadsDiagnosticoNovos}
+                </span>
+              ) : null}
+            </a>
             <a
               href="/admin/suporte"
               className="flex items-baseline gap-2 text-white/50 hover:text-cyan"
@@ -122,6 +138,29 @@ export default async function AdminPage() {
             rotulo="Receita total"
             valor={moeda(metricas?.receita_total ?? 0)}
           />
+        </section>
+
+        {/* Leads do diagnóstico — atalho rápido para o topo de funil */}
+        <section>
+          <a
+            href="/admin/diagnosticos"
+            className="painel block p-6 transition-colors hover:border-cyan/40"
+          >
+            <div className="flex items-baseline justify-between gap-4">
+              <span className="rotulo text-cyan">Leads do diagnóstico</span>
+              {leadsDiagnosticoNovos ? (
+                <span className="rotulo border border-cyan px-2 py-0.5 text-xs text-cyan">
+                  {leadsDiagnosticoNovos} novo(s)
+                </span>
+              ) : (
+                <span className="text-xs text-white/40">Nenhum lead novo</span>
+              )}
+            </div>
+            <p className="mt-3 text-sm text-white/60">
+              Ver todos os leads que preencheram o diagnóstico grátis, com indicadores
+              financeiros calculados e status no funil comercial.
+            </p>
+          </a>
         </section>
 
         {/* Sentinela — vigia técnico. O alerta só aparece quando há
