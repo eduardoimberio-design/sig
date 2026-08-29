@@ -1,16 +1,27 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { useFormState } from "react-dom";
 import {
   gerarVouchers,
   concederAcesso,
   type EstadoForm,
 } from "@/app/actions/admin";
+import { ocultarVoucher, excluirVoucher } from "@/app/actions/admin-vouchers";
 import { Alerta } from "@/components/ui";
 import { moeda, data as fmtData } from "@/lib/formatters";
 
 const estadoInicial: EstadoForm = {};
+
+function formatarCnpj(valor: string) {
+  const digitos = valor.replace(/\D/g, "").slice(0, 14);
+  if (digitos.length !== 14) return valor;
+  return digitos
+    .replace(/^(\d{2})(\d)/, "$1.$2")
+    .replace(/^(\d{2})\.(\d{3})(\d)/, "$1.$2.$3")
+    .replace(/\.(\d{3})(\d)/, ".$1/$2")
+    .replace(/(\d{4})(\d)/, "$1-$2");
+}
 
 // ---------------------------------------------------------
 // EMPRESAS
@@ -72,13 +83,27 @@ export function ListaEmpresas({ empresas }: { empresas: any[] }) {
             </button>
 
             {aberta && (
-              <div className="border-t border-base-border p-5">
+              <div className="space-y-5 border-t border-base-border p-5">
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <DadoCadastral label="CNPJ" valor={e.cnpj ? formatarCnpj(e.cnpj) : "—"} />
+                  <DadoCadastral label="Telefone" valor={e.telefone || "—"} />
+                  <DadoCadastral label="Slug" valor={e.slug} />
+                </div>
                 <FormConcederAcesso empresaId={e.id} nome={e.nome} />
               </div>
             )}
           </div>
         );
       })}
+    </div>
+  );
+}
+
+function DadoCadastral({ label, valor }: { label: string; valor: string }) {
+  return (
+    <div>
+      <span className="rotulo mb-1 block text-white/35">{label}</span>
+      <p className="text-sm text-white/70">{valor}</p>
     </div>
   );
 }
@@ -275,6 +300,7 @@ export function ListaVouchers({ vouchers }: { vouchers: any[] }) {
               <th className="rotulo px-4 py-3 font-normal text-white/40">Descrição</th>
               <th className="rotulo px-4 py-3 font-normal text-white/40">Status</th>
               <th className="rotulo px-4 py-3 font-normal text-white/40">Resgatado por</th>
+              <th className="rotulo px-4 py-3 font-normal text-white/40"></th>
             </tr>
           </thead>
           <tbody>
@@ -291,6 +317,9 @@ export function ListaVouchers({ vouchers }: { vouchers: any[] }) {
                 <td className="px-4 py-3 text-white/50">
                   {v.empresa_resgate ?? "—"}
                 </td>
+                <td className="px-4 py-3">
+                  <AcoesVoucher voucherId={v.id} status={v.status} />
+                </td>
               </tr>
             ))}
           </tbody>
@@ -302,6 +331,78 @@ export function ListaVouchers({ vouchers }: { vouchers: any[] }) {
           Nenhum voucher disponível — todos já foram resgatados.
         </p>
       )}
+    </div>
+  );
+}
+
+function AcoesVoucher({ voucherId, status }: { voucherId: string; status: string }) {
+  const [isPending, startTransition] = useTransition();
+  const [confirmando, setConfirmando] = useState<"ocultar" | "excluir" | null>(null);
+  const [erro, setErro] = useState(false);
+
+  // Voucher já usado: preserva o histórico, nenhuma ação disponível.
+  if (status === "usado") return null;
+
+  function executar(acao: "ocultar" | "excluir") {
+    setErro(false);
+    startTransition(async () => {
+      try {
+        if (acao === "ocultar") await ocultarVoucher(voucherId);
+        else await excluirVoucher(voucherId);
+        setConfirmando(null);
+      } catch {
+        setErro(true);
+      }
+    });
+  }
+
+  if (confirmando) {
+    return (
+      <div className="flex flex-col items-start gap-1.5">
+        <p className="text-[10px] text-white/50">
+          {confirmando === "ocultar" ? "Ocultar este voucher?" : "Excluir definitivamente?"}
+        </p>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            disabled={isPending}
+            onClick={() => executar(confirmando)}
+            className="rotulo border border-alerta px-2 py-1 text-[10px] text-alerta hover:bg-alerta/10"
+          >
+            {isPending ? "Aguarde..." : "Confirmar"}
+          </button>
+          <button
+            type="button"
+            disabled={isPending}
+            onClick={() => setConfirmando(null)}
+            className="rotulo border border-base-border px-2 py-1 text-[10px] text-white/50 hover:text-white/80"
+          >
+            Cancelar
+          </button>
+        </div>
+        {erro && <p className="text-[10px] text-alerta">Erro ao processar</p>}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-3 text-[10px]">
+      {status === "disponivel" && (
+        <button
+          type="button"
+          onClick={() => setConfirmando("ocultar")}
+          className="rotulo text-white/35 hover:text-cyan"
+        >
+          Ocultar
+        </button>
+      )}
+      <button
+        type="button"
+        onClick={() => setConfirmando("excluir")}
+        className="rotulo text-white/35 hover:text-alerta"
+      >
+        Excluir
+      </button>
     </div>
   );
 }
