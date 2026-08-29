@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { moeda } from "@/lib/formatters";
-import { StatusLeadSelect } from "./cliente";
+import { StatusLeadSelect, ExcluirLeadButton } from "./cliente";
 
 export const dynamic = "force-dynamic";
 
@@ -159,6 +159,7 @@ export default async function DiagnosticosAdminPage({
                   <th className="px-4 py-3">Consultor 24h?</th>
                   <th className="px-4 py-3">Status</th>
                   <th className="px-4 py-3">Recebido em</th>
+                  <th className="px-4 py-3"></th>
                 </tr>
               </thead>
               <tbody>
@@ -194,6 +195,9 @@ export default async function DiagnosticosAdminPage({
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap text-xs text-white/40">
                       {fmtDataHora(lead.created_at)}
+                    </td>
+                    <td className="px-4 py-3">
+                      <ExcluirLeadButton leadId={lead.id} nomeLead={lead.nome} />
                     </td>
                   </tr>
                 ))}
