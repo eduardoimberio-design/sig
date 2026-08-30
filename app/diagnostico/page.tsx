@@ -2,12 +2,9 @@
 
 // app/diagnostico/page.tsx
 //
-// AJUSTE: mesmas observações das versões anteriores — classes Tailwind com valores
-// arbitrários, fontes assumidas como já carregadas globalmente.
-//
-// v4: depois do resultado, a página oferece DOIS caminhos — contratar o SIG direto
-// (sig-fsi.com.br/cadastro) ou falar com o consultor antes (WhatsApp) — em vez de só
-// um CTA único de agendamento.
+// v6 — copy reformulada (gancho de curiosidade + agitação do problema +
+// autoridade + antecipação do resultado), estrutura de dados e cálculo
+// idênticos à v5. Nenhuma mudança de schema, API ou lógica de diagnóstico.
 
 import { useState, type FormEvent } from "react";
 
@@ -108,6 +105,10 @@ export default function DiagnosticoPage() {
     }
   }
 
+  function irParaFormulario() {
+    document.getElementById("formulario-diagnostico")?.scrollIntoView({ behavior: "smooth" });
+  }
+
   return (
     <main
       className="text-[#E8EEF3] min-h-screen"
@@ -135,6 +136,7 @@ export default function DiagnosticoPage() {
 
         {etapa !== "resultado" && (
           <>
+            {/* HERO — gancho de curiosidade */}
             <span
               style={{ fontFamily: "IBM Plex Mono, monospace" }}
               className="block text-[11px] tracking-[0.14em] uppercase text-[#4EC5DC] mb-4"
@@ -145,12 +147,100 @@ export default function DiagnosticoPage() {
               style={{ fontFamily: "Space Grotesk, sans-serif" }}
               className="text-3xl sm:text-4xl font-bold leading-tight mb-4"
             >
-              Seu negócio te diz <span className="text-[#4EC5DC]">o que fazer</span>, ou só mostra números?
+              Existe um número dentro do seu negócio que decide se{" "}
+              <span className="text-[#4EC5DC]">sobra lucro</span> no fim do mês.
+              Você já calculou ele?
             </h1>
-            <p className="text-[#8FA3B3] mb-10 max-w-lg">
-              Informe alguns números reais da sua operação e receba uma leitura financeira
-              completa, com comparação a referências do setor — não um palpite genérico.
+            <p className="text-[#8FA3B3] mb-6 max-w-lg text-[15px] leading-relaxed">
+              Não é sobre vender mais. É sobre parar de perder dinheiro sem saber onde.
+              Em 3 minutos, com números reais da sua operação, você descobre exatamente
+              o que está pesando contra o seu caixa — com a mesma lente que eu uso em
+              consultoria presencial.
             </p>
+            <button
+              onClick={irParaFormulario}
+              style={{ fontFamily: "Space Grotesk, sans-serif" }}
+              className="inline-flex items-center gap-2 bg-[#4EC5DC] text-[#04121A] font-bold text-[15px] px-7 py-4 rounded-sm hover:-translate-y-0.5 transition-transform mb-16"
+            >
+              Descobrir meu número →
+            </button>
+
+            {/* PROBLEMA — agitação (PAS) */}
+            <span
+              style={{ fontFamily: "IBM Plex Mono, monospace" }}
+              className="block text-[11px] tracking-[0.14em] uppercase text-[#D9A94C] mb-4"
+            >
+              O que ninguém te conta
+            </span>
+            <h2
+              style={{ fontFamily: "Space Grotesk, sans-serif" }}
+              className="text-2xl font-bold leading-snug mb-4 max-w-lg"
+            >
+              Fechar o caixa "bem" não significa que está indo bem
+            </h2>
+            <p className="text-[#8FA3B3] mb-16 max-w-lg text-[15px] leading-relaxed">
+              A maioria dos negócios de alimentação não afunda por falta de cliente —
+              afunda porque o dono decide o tempo todo (preço, cardápio, escala de
+              equipe) sem nenhum número real na mão. E o pior: o problema não aparece
+              de uma vez. Ele se acumula mês a mês, silenciosamente, até virar uma bola
+              de neve que ninguém viu crescer.
+            </p>
+
+            {/* AUTORIDADE — reforço de credibilidade real, sem números inventados */}
+            <span
+              style={{ fontFamily: "IBM Plex Mono, monospace" }}
+              className="block text-[11px] tracking-[0.14em] uppercase text-[#4EC5DC] mb-4"
+            >
+              Por trás do diagnóstico
+            </span>
+            <h2
+              style={{ fontFamily: "Space Grotesk, sans-serif" }}
+              className="text-2xl font-bold leading-snug mb-4 max-w-lg"
+            >
+              O mesmo raciocínio da consultoria presencial — só que em 3 minutos
+            </h2>
+            <blockquote
+              style={{ fontFamily: "Space Grotesk, sans-serif" }}
+              className="border-l-2 border-[#4EC5DC] pl-5 text-lg leading-relaxed mb-4 max-w-lg"
+            >
+              "Depois de anos como consultor de bares e restaurantes, transformei em
+              produto o mesmo raciocínio que uso presencialmente para encontrar a
+              causa raiz dos problemas — só que agora ele roda todo dia, não uma vez
+              por mês."
+            </blockquote>
+            <p
+              style={{ fontFamily: "IBM Plex Mono, monospace" }}
+              className="text-[12px] text-[#8FA3B3] mb-6"
+            >
+              EDUARDO IMBERIO — Consultor de food service, criador do SIG
+            </p>
+            <p className="text-[#8FA3B3] mb-16 max-w-lg text-[15px] leading-relaxed">
+              Métodos de consultoria profissional aplicados todos os dias, não só uma
+              vez por mês.
+            </p>
+
+            {/* ANTECIPAÇÃO — o que o diagnóstico revela, gera curiosidade pelo resultado */}
+            <div className="border border-[#D9A94C]/30 bg-[#D9A94C]/[0.04] rounded-sm p-6 mb-10">
+              <span
+                style={{ fontFamily: "IBM Plex Mono, monospace" }}
+                className="block text-[11px] tracking-[0.14em] uppercase text-[#D9A94C] mb-4"
+              >
+                Em 3 minutos você vai descobrir
+              </span>
+              <ul className="space-y-3">
+                {[
+                  "Se o seu CMV está dentro, acima ou abaixo do saudável pro seu segmento",
+                  "Se o custo com a sua equipe está puxando a margem pra baixo",
+                  "O Prime Cost do seu negócio — o número que a maioria nunca calculou, mas que decide se sobra lucro",
+                  "A causa mais provável de onde você está perdendo dinheiro, e o que fazer sobre isso essa semana",
+                ].map((item) => (
+                  <li key={item} className="flex gap-3 text-[15px] leading-relaxed">
+                    <span className="text-[#D9A94C] shrink-0">→</span>
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
           </>
         )}
 
@@ -167,7 +257,6 @@ export default function DiagnosticoPage() {
               {nome}, aqui está a leitura do seu negócio:
             </h2>
 
-            {/* indicadores em destaque */}
             <div className="grid grid-cols-3 gap-3 mb-7">
               <Indicador label="CMV" valor={fmtPct(resultado.indicadores.cmvPercentual)} />
               <Indicador label="Custo de pessoal" valor={fmtPct(resultado.indicadores.custoPessoalPercentual)} />
@@ -183,7 +272,6 @@ export default function DiagnosticoPage() {
               tipo de acompanhamento todo dia, automaticamente, dentro do seu negócio.
             </p>
 
-            {/* Dois caminhos: contratar direto ou falar com o consultor antes */}
             <div className="grid sm:grid-cols-2 gap-3">
               <a
                 href={URL_CADASTRO}
@@ -221,7 +309,21 @@ export default function DiagnosticoPage() {
         )}
 
         {etapa !== "resultado" && (
-          <form onSubmit={handleSubmit} className="bg-[#0D1826] border border-[#4EC5DC]/20 rounded-sm p-6 sm:p-8">
+          <form
+            id="formulario-diagnostico"
+            onSubmit={handleSubmit}
+            className="bg-[#0D1826] border border-[#4EC5DC]/20 rounded-sm p-6 sm:p-8 scroll-mt-8"
+          >
+            <span
+              style={{ fontFamily: "IBM Plex Mono, monospace" }}
+              className="block text-[11px] tracking-[0.14em] uppercase text-[#4EC5DC] mb-1"
+            >
+              Vamos ao seu diagnóstico
+            </span>
+            <p className="text-[#8FA3B3] text-sm mb-6">
+              Números aproximados já bastam — o objetivo aqui é clareza, não precisão contábil.
+            </p>
+
             <Campo label="Seu nome">
               <input
                 required
