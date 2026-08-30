@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { RegistroUso } from "@/components/registro-uso";
 import { sair } from "@/app/actions/auth";
 
 export const dynamic = "force-dynamic";
@@ -47,6 +48,7 @@ export default async function PainelLayout({
 
   return (
     <div className="min-h-screen">
+      <RegistroUso />
       <header className="border-b border-base-border">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
           <Link href="/painel" className="flex items-baseline gap-3">

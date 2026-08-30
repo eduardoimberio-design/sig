@@ -108,6 +108,12 @@ export default async function AdminPage() {
                 </span>
               ) : null}
             </a>
+            <a
+              href="/admin/uso"
+              className="text-white/50 hover:text-cyan"
+            >
+              Uso
+            </a>
             <a href="/painel" className="text-white/50 hover:text-white/80">
               Meu painel
             </a>
