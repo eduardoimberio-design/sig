@@ -50,7 +50,18 @@ export default async function RootLayout({
       lang="pt-BR"
       className={`${display.variable} ${sans.variable} ${mono.variable}`}
     >
-      <body className="bg-base-bg text-white font-sans antialiased">
+      <body
+        className="text-white font-sans antialiased"
+        style={{
+          backgroundColor: "#050B14",
+          backgroundImage:
+            "linear-gradient(rgba(5,11,20,0.90), rgba(5,11,20,0.96)), url('/images/diagnostico-bg.jpg')",
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          backgroundAttachment: "fixed",
+          backgroundRepeat: "no-repeat",
+        }}
+      >
         {children}
         <Joao logado={!!user} />
       </body>
