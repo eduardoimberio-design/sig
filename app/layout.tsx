@@ -55,7 +55,7 @@ export default async function RootLayout({
         style={{
           backgroundColor: "#050B14",
           backgroundImage:
-            "linear-gradient(rgba(5,11,20,0.90), rgba(5,11,20,0.96)), url('/images/diagnostico-bg.jpg')",
+            "linear-gradient(rgba(5,11,20,0.72), rgba(5,11,20,0.85)), url('/images/diagnostico-bg.jpg')",
           backgroundSize: "cover",
           backgroundPosition: "center",
           backgroundAttachment: "fixed",
