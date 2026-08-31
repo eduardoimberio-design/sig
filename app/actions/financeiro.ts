@@ -1,4 +1,6 @@
 "use server";
+import { lerDocumentoFaturamento } from "@/lib/documentos/leitor-faturamento";
+import { registrarEvento } from "@/lib/eventos";
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -329,4 +331,187 @@ export async function excluirLancamento(
   revalidatePath("/painel/financeiro");
   revalidatePath("/painel");
   return { sucesso: "Lançamento excluído." };
+}
+
+// =========================================================
+// FATURAMENTO POR DOCUMENTO E CONSOLIDADO
+// =========================================================
+
+/**
+ * Lê o relatório de vendas e devolve o que encontrou — sem gravar
+ * nada. A gravação só acontece depois que o usuário confere na tela.
+ * Leitura por visão erra; número de faturamento errado contamina
+ * CMV, margem e todas as recomendações dos agentes.
+ */
+export async function lerFaturamentoDocumento(
+  _estado: any,
+  formData: FormData
+): Promise<{ erro?: string; leitura?: any }> {
+  const arquivo = formData.get("arquivo") as File | null;
+  if (!arquivo || arquivo.size === 0) return { erro: "Selecione um arquivo." };
+
+  if (arquivo.size > 15 * 1024 * 1024) {
+    return { erro: "Arquivo maior que 15MB." };
+  }
+
+  const extensao = arquivo.name.split(".").pop()?.toLowerCase() ?? "";
+  const tipos: Record<string, any> = {
+    pdf: "application/pdf",
+    jpg: "image/jpeg",
+    jpeg: "image/jpeg",
+    png: "image/png",
+    webp: "image/webp",
+  };
+  const mediaType = tipos[extensao];
+  if (!mediaType) {
+    return { erro: "Envie PDF, JPG, PNG ou WEBP." };
+  }
+
+  const { empresaId } = await empresaDoUsuario();
+  if (!empresaId) return { erro: "Sessão expirada. Entre novamente." };
+
+  const bytes = Buffer.from(await arquivo.arrayBuffer());
+  const descricao = formData.get("descricao");
+
+  try {
+    const leitura = await lerDocumentoFaturamento({
+      base64: bytes.toString("base64"),
+      mediaType,
+      anoReferencia: new Date().getFullYear(),
+      descricao: typeof descricao === "string" ? descricao : null,
+    });
+
+    return { leitura };
+  } catch (e: any) {
+    await registrarEvento({
+      origem: "documentos",
+      tipo: "leitura_falhou",
+      mensagem: e?.message ?? "Falha ao ler relatório de vendas.",
+      empresaId,
+      detalhe: { extensao },
+    });
+    return { erro: e?.message ?? "Não consegui ler o documento." };
+  }
+}
+
+const schemaFaturamentoConsolidado = z.object({
+  inicio: z.string().min(10, "Informe o início do período."),
+  fim: z.string().min(10, "Informe o fim do período."),
+  valor: valorBR,
+  num_atendimentos: z.coerce.number().int().min(0).optional(),
+});
+
+/**
+ * Faturamento de um período inteiro numa linha só.
+ *
+ * Existe porque muitos sistemas de PDV do cliente só entregam o total
+ * do mês. Antes disso, o cliente era obrigado a lançar o total do mês
+ * como se fosse a venda de um único dia — o que distorce qualquer
+ * análise por dia da semana.
+ */
+export async function salvarFaturamentoConsolidado(
+  _estado: EstadoForm,
+  formData: FormData
+): Promise<EstadoForm> {
+  const parsed = schemaFaturamentoConsolidado.safeParse({
+    inicio: formData.get("inicio"),
+    fim: formData.get("fim"),
+    valor: formData.get("valor"),
+    num_atendimentos: formData.get("num_atendimentos") || 0,
+  });
+
+  if (!parsed.success) return { erro: parsed.error.issues[0].message };
+  if (parsed.data.fim < parsed.data.inicio) {
+    return { erro: "O fim do período não pode ser antes do início." };
+  }
+
+  const { supabase, empresaId } = await empresaDoUsuario();
+  if (!empresaId) return { erro: "Sessão expirada. Entre novamente." };
+
+  const [ai, mi] = parsed.data.inicio.split("-");
+  const [af, mf] = parsed.data.fim.split("-");
+  const rotulo =
+    ai === af && mi === mf
+      ? `consolidado ${mi}/${ai}`
+      : `consolidado ${mi}/${ai}-${mf}/${af}`;
+
+  // Fica gravado na última data do período: assim entra em qualquer
+  // consulta que cubra o intervalo, sem inventar venda em dia nenhum.
+  const { error } = await supabase.from("vendas_diarias").upsert(
+    {
+      empresa_id: empresaId,
+      data: parsed.data.fim,
+      faturamento: parsed.data.valor,
+      num_atendimentos: parsed.data.num_atendimentos ?? 0,
+      canal: rotulo,
+      observacoes: `Faturamento consolidado de ${parsed.data.inicio} a ${parsed.data.fim}.`,
+    },
+    { onConflict: "empresa_id,data,canal" }
+  );
+
+  if (error) return { erro: "Não consegui salvar o faturamento." };
+
+  revalidatePath("/painel/financeiro");
+  revalidatePath("/painel/financeiro/faturamento");
+  revalidatePath("/painel");
+  return {
+    sucesso: `Faturamento de ${rotulo} registrado.`,
+  };
+}
+
+/**
+ * Grava o que o usuário confirmou depois da leitura do documento.
+ * Recebe JSON porque a quantidade de linhas varia.
+ */
+export async function confirmarFaturamentoLido(
+  _estado: EstadoForm,
+  formData: FormData
+): Promise<EstadoForm> {
+  const bruto = formData.get("itens");
+  if (typeof bruto !== "string") return { erro: "Nada para registrar." };
+
+  let itens: any[];
+  try {
+    itens = JSON.parse(bruto);
+  } catch {
+    return { erro: "Dados inválidos." };
+  }
+
+  if (!Array.isArray(itens) || itens.length === 0) {
+    return { erro: "Nenhuma linha para registrar." };
+  }
+
+  const { supabase, empresaId } = await empresaDoUsuario();
+  if (!empresaId) return { erro: "Sessão expirada. Entre novamente." };
+
+  const linhas = itens
+    .filter(
+      (i) =>
+        typeof i?.data === "string" &&
+        /^\d{4}-\d{2}-\d{2}$/.test(i.data) &&
+        Number.isFinite(Number(i?.valor))
+    )
+    .map((i) => ({
+      empresa_id: empresaId,
+      data: i.data,
+      faturamento: Number(i.valor),
+      num_atendimentos: Number.isFinite(Number(i.atendimentos))
+        ? Number(i.atendimentos)
+        : 0,
+      canal: i.canal ? String(i.canal).slice(0, 40) : "importado",
+      observacoes: "Importado de relatório de vendas, confirmado pelo usuário.",
+    }));
+
+  if (linhas.length === 0) return { erro: "Nenhuma linha válida." };
+
+  const { error } = await supabase
+    .from("vendas_diarias")
+    .upsert(linhas, { onConflict: "empresa_id,data,canal" });
+
+  if (error) return { erro: "Não consegui gravar os lançamentos." };
+
+  revalidatePath("/painel/financeiro");
+  revalidatePath("/painel/financeiro/faturamento");
+  revalidatePath("/painel");
+  return { sucesso: `${linhas.length} lançamento(s) registrado(s).` };
 }

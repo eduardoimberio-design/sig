@@ -117,6 +117,13 @@ export default async function FinanceiroPage({
             Resultado do período
           </h1>
           <Link
+            href="/painel/financeiro/faturamento"
+            className="rotulo mr-2 mt-3 inline-block border border-cyan/40 px-4 py-2
+                       text-xs text-cyan transition-colors hover:bg-cyan hover:text-base-bg"
+          >
+            Registrar faturamento
+          </Link>
+          <Link
             href="/painel/financeiro/lancamentos"
             className="rotulo mt-3 inline-block border border-base-border px-4 py-2
                        text-xs text-white/60 transition-colors hover:border-cyan hover:text-cyan"
