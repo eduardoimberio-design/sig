@@ -65,6 +65,12 @@ export default async function PainelLayout({
               </Link>
             )}
             <Link
+              href="/painel/perfil"
+              className="text-white/60 hover:text-cyan"
+            >
+              Meus dados
+            </Link>
+            <Link
               href="/painel/suporte"
               className="flex items-baseline gap-2 text-white/60 hover:text-cyan"
             >

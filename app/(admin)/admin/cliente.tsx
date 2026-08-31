@@ -87,8 +87,26 @@ export function ListaEmpresas({ empresas }: { empresas: any[] }) {
                 <div className="grid gap-4 sm:grid-cols-3">
                   <DadoCadastral label="CNPJ" valor={e.cnpj ? formatarCnpj(e.cnpj) : "—"} />
                   <DadoCadastral label="Telefone" valor={e.telefone || "—"} />
+                  <DadoCadastral label="E-mail" valor={e.email_contato || "—"} />
+                  <DadoCadastral label="Razão social" valor={e.razao_social || "—"} />
+                  <DadoCadastral label="Tipo" valor={e.tipo_negocio || "—"} />
+                  <DadoCadastral
+                    label="Cidade"
+                    valor={
+                      e.cidade ? `${e.cidade}${e.uf ? ` / ${e.uf}` : ""}` : "—"
+                    }
+                  />
+                  <DadoCadastral label="Endereço" valor={e.endereco || "—"} />
+                  <DadoCadastral label="CEP" valor={e.cep || "—"} />
                   <DadoCadastral label="Slug" valor={e.slug} />
                 </div>
+
+                {!e.cadastro_completo && (
+                  <p className="border-l-2 border-alerta pl-3 text-xs text-alerta">
+                    Cadastro incompleto — faltam dados básicos (CNPJ, telefone
+                    ou cidade).
+                  </p>
+                )}
                 <FormConcederAcesso empresaId={e.id} nome={e.nome} />
               </div>
             )}
