@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { CardAnexos } from "@/components/anexos";
 import {
@@ -115,6 +116,13 @@ export default async function FinanceiroPage({
           <h1 className="titulo mt-1 text-3xl font-semibold">
             Resultado do período
           </h1>
+          <Link
+            href="/painel/financeiro/lancamentos"
+            className="rotulo mt-3 inline-block border border-base-border px-4 py-2
+                       text-xs text-white/60 transition-colors hover:border-cyan hover:text-cyan"
+          >
+            Buscar e corrigir lançamentos
+          </Link>
         </div>
 
         <form className="flex items-end gap-3 text-sm">
