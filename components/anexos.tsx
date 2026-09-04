@@ -9,6 +9,7 @@ import {
   excluirAnexo,
   type EstadoForm,
 } from "@/app/actions/anexos";
+import { processarAnexoComoNota } from "@/app/actions/estoque";
 import { Alerta, BotaoSubmit } from "@/components/ui";
 
 const estadoInicial: EstadoForm = {};
@@ -30,6 +31,20 @@ const DICA_POR_MODULO: Record<string, string> = {
   equipe: "Escala, atestado, print de combinação de troca de turno.",
   conselheiro: "Print de conversa, reclamação de cliente, relatório do problema.",
 };
+
+/**
+ * Reconhece nota fiscal de compra pelo que a leitura encontrou.
+ * XML de NF-e é certeza; PDF e foto dependem de marcas do texto.
+ * Erro para mais é barato aqui: o botão só oferece, quem decide é
+ * o cliente.
+ */
+function parecemNotaFiscal(anexo: Anexo): boolean {
+  if (anexo.tipo_arquivo === "xml") return true;
+
+  const texto = `${anexo.nome_arquivo} ${anexo.resumo_ia ?? ""}`.toLowerCase();
+  const marcas = ["danfe", "nota fiscal", "nf-e", "nfe", "cupom fiscal"];
+  return marcas.some((m) => texto.includes(m));
+}
 
 function dataCurta(iso: string) {
   return new Date(iso).toLocaleDateString("pt-BR", {
@@ -194,6 +209,9 @@ function ItemAguardando({ anexo, modulo }: { anexo: Anexo; modulo: string }) {
         </div>
       </div>
 
+      {parecemNotaFiscal(anexo) && <OferecerImportacao id={anexo.id} />}
+
+
       {estado.erro && (
         <div className="mb-3">
           <Alerta tipo="erro">{estado.erro}</Alerta>
@@ -244,6 +262,9 @@ function ItemConfirmado({ anexo, modulo }: { anexo: Anexo; modulo: string }) {
           <p className="whitespace-pre-line text-sm text-white/55">
             {anexo.resumo_ia}
           </p>
+
+          {parecemNotaFiscal(anexo) && <OferecerImportacao id={anexo.id} />}
+
           <div className="mt-3">
             <FormExcluir id={anexo.id} modulo={modulo} rotulo="Remover" />
           </div>
@@ -275,5 +296,45 @@ function FormExcluir({
         {rotulo}
       </button>
     </form>
+  );
+}
+
+
+/**
+ * O card de documentos serve de contexto para o agente — não lança
+ * nada. Quando o arquivo é nota fiscal, o cliente quase sempre
+ * espera que os itens entrem no estoque. Em vez de exigir que ele
+ * descubra a tela certa, oferecemos o caminho aqui.
+ */
+function OferecerImportacao({ id }: { id: string }) {
+  const [estado, acao] = useFormState(processarAnexoComoNota, estadoInicial);
+
+  return (
+    <div className="mt-4 border-l-2 border-cyan bg-cyan/5 py-3 pl-4 pr-3">
+      <p className="text-sm text-white/70">
+        Isto parece uma nota fiscal de compra. Enviada aqui, ela serve só de
+        contexto para o agente —{" "}
+        <span className="text-cyan">não entra no estoque nem no financeiro</span>.
+      </p>
+
+      {estado.erro && (
+        <p className="mt-2 text-xs text-negativo">{estado.erro}</p>
+      )}
+
+      <form action={acao} className="mt-3">
+        <input type="hidden" name="anexo_id" value={id} />
+        <button
+          type="submit"
+          className="rotulo border border-cyan/50 px-4 py-2 text-xs text-cyan
+                     transition-colors hover:bg-cyan hover:text-base-bg"
+        >
+          Lançar esta nota no estoque
+        </button>
+      </form>
+
+      <p className="mt-2 text-xs text-white/30">
+        Você revisa item por item antes de confirmar.
+      </p>
+    </div>
   );
 }

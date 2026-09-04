@@ -2,6 +2,7 @@
 
 import { registrarEvento } from "@/lib/eventos";
 
+import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
@@ -697,4 +698,162 @@ export async function editarItemFicha(
   revalidatePath("/painel/estoque");
   revalidatePath("/painel/estoque/itens");
   return { sucesso: "Ficha técnica corrigida." };
+}
+
+// =========================================================
+// PONTE ENTRE OS DOIS CAMINHOS DE DOCUMENTO
+//
+// O cliente pode subir uma nota fiscal pelo card "Subir
+// documento" de qualquer agente, achando que ela seria lançada.
+// Não era — aquele card só dá contexto ao agente.
+//
+// Esta função pega o arquivo que já está no storage e o joga no
+// fluxo de importação de verdade, sem obrigar o cliente a
+// descobrir sozinho qual era a tela certa.
+// =========================================================
+
+export async function processarAnexoComoNota(
+  _estado: EstadoForm,
+  formData: FormData
+): Promise<EstadoForm> {
+  const anexoId = formData.get("anexo_id");
+  if (typeof anexoId !== "string") {
+    return { erro: "Anexo não identificado." };
+  }
+
+  const { empresaId } = await contexto();
+  if (!empresaId) return { erro: "Sessão expirada." };
+
+  const admin = createAdminClient();
+
+  const { data: anexo } = await admin
+    .from("anexos_contexto")
+    .select("nome_arquivo, storage_path, tipo_arquivo")
+    .eq("id", anexoId)
+    .eq("empresa_id", empresaId)
+    .maybeSingle();
+
+  if (!anexo) return { erro: "Anexo não encontrado." };
+
+  const { data: arquivo, error: erroDownload } = await admin.storage
+    .from("documentos")
+    .download(anexo.storage_path);
+
+  if (erroDownload || !arquivo) {
+    return { erro: "Não consegui recuperar o arquivo enviado." };
+  }
+
+  const bytes = new Uint8Array(await arquivo.arrayBuffer());
+  const extensao = anexo.nome_arquivo.split(".").pop()?.toLowerCase() ?? "";
+
+  const tipoMap: Record<string, "xml_nfe" | "pdf" | "imagem"> = {
+    xml: "xml_nfe",
+    pdf: "pdf",
+    jpg: "imagem",
+    jpeg: "imagem",
+    png: "imagem",
+    webp: "imagem",
+  };
+  const tipo = tipoMap[extensao];
+  if (!tipo) return { erro: "Formato não suportado para importação." };
+
+  // Cópia própria no fluxo de documentos: o anexo continua servindo
+  // de contexto para o agente, sem depender deste registro.
+  const caminho = `${empresaId}/${Date.now()}-${anexo.nome_arquivo}`;
+  await admin.storage
+    .from("documentos")
+    .upload(caminho, bytes, { contentType: arquivo.type });
+
+  const { data: documento, error: erroInsert } = await admin
+    .from("documentos_importados")
+    .insert({
+      empresa_id: empresaId,
+      tipo,
+      nome_arquivo: anexo.nome_arquivo,
+      storage_path: caminho,
+      status: "processando",
+    })
+    .select("id")
+    .single();
+
+  if (erroInsert || !documento) {
+    return { erro: "Falha ao registrar o documento." };
+  }
+
+  try {
+    let extraido;
+
+    if (tipo === "xml_nfe") {
+      extraido = lerXmlNfe(new TextDecoder("utf-8").decode(bytes));
+    } else {
+      const mediaType =
+        tipo === "pdf"
+          ? ("application/pdf" as const)
+          : extensao === "png"
+            ? ("image/png" as const)
+            : extensao === "webp"
+              ? ("image/webp" as const)
+              : ("image/jpeg" as const);
+
+      extraido = await lerDocumentoComIA({
+        base64: Buffer.from(bytes).toString("base64"),
+        mediaType,
+      });
+    }
+
+    const itensComVinculo = await Promise.all(
+      extraido.itens.map(async (item) => {
+        const { data: insumoId } = await admin.rpc("buscar_insumo_aprendido", {
+          p_empresa_id: empresaId,
+          p_texto: item.descricao,
+        });
+        return {
+          empresa_id: empresaId,
+          documento_id: documento.id,
+          descricao_original: item.descricao,
+          quantidade: item.quantidade,
+          unidade_original: item.unidade,
+          valor_unitario: item.valorUnitario,
+          valor_total: item.valorTotal,
+          insumo_id: insumoId || null,
+          confianca_vinculo: insumoId ? "automatico" : null,
+        };
+      })
+    );
+
+    if (itensComVinculo.length > 0) {
+      await admin.from("documento_itens").insert(itensComVinculo);
+    }
+
+    await admin
+      .from("documentos_importados")
+      .update({
+        status: "aguardando_revisao",
+        fornecedor_nome: extraido.fornecedorNome,
+        fornecedor_cnpj: extraido.fornecedorCnpj,
+        numero_nota: extraido.numeroNota,
+        data_emissao: extraido.dataEmissao,
+        valor_total: extraido.valorTotal,
+        processado_em: new Date().toISOString(),
+      })
+      .eq("id", documento.id);
+  } catch (e) {
+    await admin
+      .from("documentos_importados")
+      .update({
+        status: "erro",
+        erro_mensagem: e instanceof Error ? e.message : "Erro desconhecido.",
+      })
+      .eq("id", documento.id);
+
+    return {
+      erro:
+        e instanceof Error
+          ? e.message
+          : "Não foi possível ler este documento como nota fiscal.",
+    };
+  }
+
+  revalidatePath("/painel/estoque/documentos");
+  redirect("/painel/estoque/documentos");
 }
