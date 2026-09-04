@@ -1,5 +1,7 @@
 "use server";
 
+import { registrarEvento } from "@/lib/eventos";
+
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
@@ -426,6 +428,64 @@ export async function confirmarDocumento(formData: FormData) {
     });
   }
 
+  // --------------------------------------------------------
+  // A nota também é um GASTO. Sem esta parte, o estoque subia
+  // mas o CMV do DRE ignorava a compra, o fornecedor não
+  // aparecia no Pareto e o painel de desempenho mostrava
+  // margem melhor do que a real.
+  // --------------------------------------------------------
+  // Caixa desmarcada não envia campo nenhum: por isso a checagem é
+  // pela presença do "sim", e não pela ausência de um "nao".
+  const lancarDespesa = formData.get("lancar_despesa") === "sim";
+
+  if (lancarDespesa) {
+    const { data: doc } = await supabase
+      .from("documentos_importados")
+      .select("fornecedor_nome, numero_nota, valor_total, data_emissao")
+      .eq("id", documentoId)
+      .eq("empresa_id", empresaId)
+      .maybeSingle();
+
+    const valorTotal = Number(doc?.valor_total) || 0;
+
+    if (valorTotal > 0) {
+      const vencimentoInformado = formData.get("vencimento");
+      const vencimento =
+        typeof vencimentoInformado === "string" && vencimentoInformado
+          ? vencimentoInformado
+          : (doc?.data_emissao ?? new Date().toISOString().slice(0, 10));
+
+      const descricao = doc?.numero_nota
+        ? `Compra — NF ${doc.numero_nota}`
+        : "Compra de mercadoria";
+
+      // O índice único por documento_id impede lançar a mesma nota
+      // duas vezes, mesmo se a confirmação for repetida.
+      const { error: erroDespesa } = await supabase
+        .from("contas_pagar")
+        .insert({
+          empresa_id: empresaId,
+          documento_id: documentoId,
+          descricao,
+          fornecedor: doc?.fornecedor_nome ?? null,
+          valor: valorTotal,
+          vencimento,
+          grupo_dre: "cmv",
+          status: "pendente",
+        });
+
+      if (erroDespesa && !String(erroDespesa.message).includes("duplicate")) {
+        await registrarEvento({
+          origem: "documentos",
+          tipo: "erro",
+          mensagem: "Nota confirmada, mas a despesa não foi lançada.",
+          empresaId,
+          detalhe: { documentoId },
+        });
+      }
+    }
+  }
+
   await supabase
     .from("documentos_importados")
     .update({ status: "confirmado", confirmado_em: new Date().toISOString() })
@@ -434,6 +494,8 @@ export async function confirmarDocumento(formData: FormData) {
 
   revalidatePath("/painel/estoque");
   revalidatePath("/painel/estoque/documentos");
+  revalidatePath("/painel/financeiro");
+  revalidatePath("/painel");
 }
 
 export async function descartarDocumento(formData: FormData) {

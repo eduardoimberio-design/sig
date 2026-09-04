@@ -175,20 +175,68 @@ export function DocumentoRevisao({
             ? `${semVinculo} ${semVinculo === 1 ? "item sem" : "itens sem"} insumo vinculado — eles não serão lançados no estoque.`
             : "Todos os itens têm um insumo vinculado."}
         </p>
-        <div className="flex gap-3">
-          <form action={descartarDocumento}>
-            <input type="hidden" name="documento_id" value={documento.id} />
-            <button className="rotulo px-4 py-2 text-white/40 hover:text-white/70">
-              Descartar
-            </button>
-          </form>
-          <form action={confirmarDocumento}>
-            <input type="hidden" name="documento_id" value={documento.id} />
+        <form action={confirmarDocumento} className="space-y-4">
+          <input type="hidden" name="documento_id" value={documento.id} />
+
+          {/* A nota é entrada de estoque E gasto. Sem lançar a
+              despesa, o CMV do DRE fica menor que a realidade. */}
+          {Number(documento.valor_total) > 0 && (
+            <div className="border border-base-border p-4">
+              <p className="rotulo mb-3 text-cyan">Lançar no financeiro</p>
+
+              <label className="flex items-start gap-3">
+                <input
+                  type="checkbox"
+                  name="lancar_despesa"
+                  value="sim"
+                  defaultChecked
+                  className="mt-1"
+                />
+                <span className="text-sm text-white/65">
+                  Registrar {moeda(documento.valor_total)} como despesa de
+                  mercadoria (entra no CMV e no Pareto de fornecedores).
+                  <span className="mt-1 block text-xs text-white/35">
+                    Desmarque se você já lançou esta nota à mão — senão o
+                    gasto conta duas vezes.
+                  </span>
+                </span>
+              </label>
+
+              <label className="mt-4 block max-w-xs">
+                <span className="rotulo mb-2 block text-white/45">
+                  Vencimento
+                </span>
+                <input
+                  type="date"
+                  name="vencimento"
+                  defaultValue={
+                    documento.data_emissao
+                      ? String(documento.data_emissao).slice(0, 10)
+                      : new Date().toISOString().slice(0, 10)
+                  }
+                  className="campo w-full px-3 py-2 text-sm"
+                />
+                <span className="mt-1 block text-xs text-white/30">
+                  A nota traz a emissão, não o vencimento. Ajuste para a data
+                  em que você realmente paga.
+                </span>
+              </label>
+            </div>
+          )}
+
+          <div className="flex gap-3">
             <button className="rotulo border border-positivo/50 bg-positivo/10 px-5 py-2 text-positivo transition-colors hover:bg-positivo hover:text-base-bg">
               Confirmar e lançar
             </button>
-          </form>
-        </div>
+          </div>
+        </form>
+
+        <form action={descartarDocumento}>
+          <input type="hidden" name="documento_id" value={documento.id} />
+          <button className="rotulo px-4 py-2 text-xs text-white/35 hover:text-negativo">
+            Descartar documento
+          </button>
+        </form>
       </div>
     </div>
   );

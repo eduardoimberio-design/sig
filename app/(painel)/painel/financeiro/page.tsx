@@ -13,6 +13,7 @@ import {
 import { marcarPago } from "@/app/actions/financeiro";
 import { PainelLancamentos, GraficoFluxo } from "./cliente";
 import { Pareto, type ItemPareto } from "./pareto";
+import { EvolucaoCustos } from "./evolucao";
 
 export const dynamic = "force-dynamic";
 
@@ -101,6 +102,11 @@ export default async function FinanceiroPage({
 
   const paretoFornecedor = agrupar(despesas, "fornecedor");
   const paretoNatureza = agrupar(despesas, "grupo_dre");
+
+  const { data: serieMensal } = await supabase.rpc("serie_mensal", {
+    p_empresa_id: empresa.id,
+    p_meses: 6,
+  });
 
   const metaCmv = Number(config?.meta_cmv_percentual ?? 30);
   const cmvAcimaDaMeta = dre && Number(dre.cmv_percentual) > metaCmv;
@@ -251,6 +257,8 @@ export default async function FinanceiroPage({
       )}
 
       {/* Concentração de gastos */}
+      <EvolucaoCustos serie={(serieMensal ?? []) as any} metaCmv={metaCmv} />
+
       {paretoFornecedor.length > 0 && (
         <section>
           <h2 className="titulo mb-2 text-xl">Concentração de gastos</h2>
