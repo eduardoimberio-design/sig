@@ -511,3 +511,190 @@ export async function descartarDocumento(formData: FormData) {
 
   revalidatePath("/painel/estoque/documentos");
 }
+
+// =========================================================
+// EDIÇÃO E EXCLUSÃO — INSUMOS, PRODUTOS E FICHA TÉCNICA
+//
+// Necessário porque o custo do insumo agora vem automático da
+// nota fiscal. Se a leitura trouxer um valor errado, todo o CMV
+// sai errado — e até aqui não havia como corrigir pela tela.
+// =========================================================
+
+const schemaEdicaoInsumo = schemaInsumo.extend({
+  id: z.string().uuid(),
+});
+
+export async function editarInsumo(
+  _estado: EstadoForm,
+  formData: FormData
+): Promise<EstadoForm> {
+  const parsed = schemaEdicaoInsumo.safeParse({
+    id: formData.get("id"),
+    nome: formData.get("nome"),
+    unidade_medida: formData.get("unidade_medida"),
+    custo_unitario: formData.get("custo_unitario"),
+    estoque_atual: formData.get("estoque_atual") || "0",
+    estoque_minimo: formData.get("estoque_minimo") || "0",
+    fornecedor_principal: formData.get("fornecedor_principal"),
+  });
+
+  if (!parsed.success) return { erro: parsed.error.issues[0].message };
+
+  const { supabase, empresaId } = await contexto();
+  if (!empresaId) return { erro: "Sessão expirada." };
+
+  const { error } = await supabase
+    .from("insumos")
+    .update({
+      nome: parsed.data.nome,
+      unidade_medida: parsed.data.unidade_medida,
+      custo_unitario: parsed.data.custo_unitario,
+      estoque_atual: parsed.data.estoque_atual ?? 0,
+      estoque_minimo: parsed.data.estoque_minimo ?? 0,
+      fornecedor_principal: parsed.data.fornecedor_principal || null,
+    })
+    .eq("id", parsed.data.id)
+    .eq("empresa_id", empresaId);
+
+  if (error) return { erro: "Não consegui salvar a alteração." };
+
+  revalidatePath("/painel/estoque");
+  revalidatePath("/painel/estoque/itens");
+  revalidatePath("/painel");
+  return { sucesso: "Insumo corrigido. O CMV dos produtos foi recalculado." };
+}
+
+export async function excluirInsumo(
+  _estado: EstadoForm,
+  formData: FormData
+): Promise<EstadoForm> {
+  const id = formData.get("id");
+  if (typeof id !== "string") return { erro: "Insumo não identificado." };
+
+  const { supabase, empresaId } = await contexto();
+  if (!empresaId) return { erro: "Sessão expirada." };
+
+  // Ficha técnica referencia insumo com delete restrict: o banco
+  // recusa. Melhor avisar antes, com mensagem útil.
+  const { count } = await supabase
+    .from("ficha_tecnica_itens")
+    .select("id", { count: "exact", head: true })
+    .eq("insumo_id", id);
+
+  if (count && count > 0) {
+    return {
+      erro: `Este insumo está em ${count} ficha(s) técnica(s). Remova de lá antes de excluir.`,
+    };
+  }
+
+  const { error } = await supabase
+    .from("insumos")
+    .delete()
+    .eq("id", id)
+    .eq("empresa_id", empresaId);
+
+  if (error) return { erro: "Não consegui excluir o insumo." };
+
+  revalidatePath("/painel/estoque");
+  revalidatePath("/painel/estoque/itens");
+  return { sucesso: "Insumo excluído." };
+}
+
+const schemaEdicaoProduto = z.object({
+  id: z.string().uuid(),
+  nome: z.string().trim().min(2, "Informe o nome do produto."),
+  categoria: z.string().trim().optional(),
+  preco_venda: valorBR,
+});
+
+export async function editarProduto(
+  _estado: EstadoForm,
+  formData: FormData
+): Promise<EstadoForm> {
+  const parsed = schemaEdicaoProduto.safeParse({
+    id: formData.get("id"),
+    nome: formData.get("nome"),
+    categoria: formData.get("categoria"),
+    preco_venda: formData.get("preco_venda"),
+  });
+
+  if (!parsed.success) return { erro: parsed.error.issues[0].message };
+
+  const { supabase, empresaId } = await contexto();
+  if (!empresaId) return { erro: "Sessão expirada." };
+
+  const { error } = await supabase
+    .from("produtos")
+    .update({
+      nome: parsed.data.nome,
+      categoria: parsed.data.categoria || null,
+      preco_venda: parsed.data.preco_venda,
+    })
+    .eq("id", parsed.data.id)
+    .eq("empresa_id", empresaId);
+
+  if (error) return { erro: "Não consegui salvar o produto." };
+
+  revalidatePath("/painel/estoque");
+  revalidatePath("/painel/estoque/itens");
+  return { sucesso: "Produto corrigido." };
+}
+
+export async function excluirProduto(
+  _estado: EstadoForm,
+  formData: FormData
+): Promise<EstadoForm> {
+  const id = formData.get("id");
+  if (typeof id !== "string") return { erro: "Produto não identificado." };
+
+  const { supabase, empresaId } = await contexto();
+  if (!empresaId) return { erro: "Sessão expirada." };
+
+  const { error } = await supabase
+    .from("produtos")
+    .delete()
+    .eq("id", id)
+    .eq("empresa_id", empresaId);
+
+  if (error) return { erro: "Não consegui excluir o produto." };
+
+  revalidatePath("/painel/estoque");
+  revalidatePath("/painel/estoque/itens");
+  return { sucesso: "Produto excluído." };
+}
+
+const schemaEdicaoFicha = z.object({
+  id: z.string().uuid(),
+  quantidade: valorBR,
+});
+
+/** Corrige a quantidade de um insumo dentro da ficha técnica. */
+export async function editarItemFicha(
+  _estado: EstadoForm,
+  formData: FormData
+): Promise<EstadoForm> {
+  const parsed = schemaEdicaoFicha.safeParse({
+    id: formData.get("id"),
+    quantidade: formData.get("quantidade"),
+  });
+
+  if (!parsed.success) return { erro: parsed.error.issues[0].message };
+  if (parsed.data.quantidade <= 0) {
+    return { erro: "A quantidade precisa ser maior que zero." };
+  }
+
+  const { supabase, empresaId } = await contexto();
+  if (!empresaId) return { erro: "Sessão expirada." };
+
+  const { error } = await supabase
+    .from("ficha_tecnica_itens")
+    .update({ quantidade: parsed.data.quantidade })
+    .eq("id", parsed.data.id)
+    .eq("empresa_id", empresaId);
+
+  if (error) return { erro: "Não consegui salvar a quantidade." };
+
+  revalidatePath("/painel/estoque");
+  revalidatePath("/painel/estoque/itens");
+  return { sucesso: "Ficha técnica corrigida." };
+}

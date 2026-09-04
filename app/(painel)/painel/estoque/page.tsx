@@ -78,6 +78,13 @@ export default async function EstoquePage() {
             Questionário operacional
           </Link>
           <Link
+            href="/painel/estoque/itens"
+            className="rotulo border border-base-border px-4 py-2 text-xs
+                       text-white/60 transition-colors hover:border-cyan hover:text-cyan"
+          >
+            Buscar e corrigir itens
+          </Link>
+          <Link
             href="/painel/estoque/documentos"
             className="rotulo relative border border-cyan bg-cyan/10 px-5 py-2.5 text-cyan
                        transition-colors hover:bg-cyan hover:text-base-bg"
