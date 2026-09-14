@@ -7,6 +7,7 @@ import {
   type MensagemJoao,
   type LeadConversa,
 } from "@/lib/joao-ia";
+import { extrairLead } from "@/lib/joao-extrator";
 import { registrarEvento } from "@/lib/eventos";
 
 export const dynamic = "force-dynamic";
@@ -76,7 +77,7 @@ async function registrarUso(
  * é ruim; travar a conversa na frente do lead é pior.
  */
 async function gravarLead(
-  lead: LeadConversa,
+  lead: LeadConversa & { agendamentoSolicitado?: string | null },
   mensagens: MensagemJoao[]
 ): Promise<void> {
   // Sem consentimento explícito, nada é gravado. Essa é a regra, não uma
@@ -132,6 +133,7 @@ async function gravarLead(
     // transcrição inteira para saber o que foi diagnosticado.
     causa_raiz: lead.causaRaiz,
     acao_recomendada: lead.acaoRecomendada,
+    agendamento_solicitado: lead.agendamentoSolicitado ?? null,
     consentimento_lgpd: true,
     canal: "conversa_joao",
     transcricao,
@@ -250,6 +252,12 @@ export async function POST(req: Request) {
   const limite = modo === "cliente" ? LIMITE_CLIENTE : LIMITE_PUBLICO;
   const liberado = await registrarUso(chave, modo, limite);
 
+  // Mesma regra usada em joao-ia.ts para decidir se a conversa é a de diagnóstico.
+  const modoDiagnostico =
+    modo === "publico" &&
+    !!telaAtual &&
+    (telaAtual === "/diagnostico" || telaAtual.startsWith("/diagnostico/"));
+
   if (!liberado) {
     return NextResponse.json(
       {
@@ -287,10 +295,25 @@ export async function POST(req: Request) {
       empresaNome,
     });
 
-    // Se o João apurou o lead nesta mensagem, grava. Falha não interrompe a
-    // conversa — ver comentário em gravarLead.
-    if (resultado.lead) {
-      await gravarLead(resultado.lead, mensagens);
+    // Extração do lead: roda a partir do momento em que a conversa tem substância
+    // suficiente (algumas trocas), e a cada mensagem seguinte — assim o registro
+    // vai sendo completado conforme a pessoa fala, e não se perde se ela sair no
+    // meio. O upsert por WhatsApp evita duplicar.
+    //
+    // Não depende mais do João incluir os dados na resposta: com um prompt longo,
+    // ele priorizava a conversa e ignorava essa parte. Aqui é uma chamada dedicada,
+    // em modelo leve, com um único trabalho.
+    if (modoDiagnostico && mensagens.length >= 4) {
+      try {
+        const lead = await extrairLead([
+          ...mensagens,
+          { role: "assistant", content: resultado.resposta },
+        ]);
+        if (lead) await gravarLead(lead, mensagens);
+      } catch (e: any) {
+        // Falha na extração nunca quebra a conversa.
+        console.error("[João] falha ao extrair lead:", e?.message ?? e);
+      }
     }
 
     // O campo "lead" é interno: o navegador não precisa dele, e devolvê-lo

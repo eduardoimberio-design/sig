@@ -3,9 +3,18 @@
 // Gera o PDF do diagnóstico. Roda no navegador (jsPDF), não no servidor — assim o
 // download é imediato, não consome recurso da Vercel e não precisa de armazenamento.
 //
-// A identidade visual segue a do sistema: fundo navy, ciano para estrutura e âmbar
-// para os números. Um diagnóstico que a pessoa vai guardar (e possivelmente mostrar
-// para um sócio) precisa parecer um documento, não um recibo.
+// v2: virou dissertativo e educativo, porque a maioria de quem recebe este PDF não
+// tem familiaridade com termos financeiros. Dois princípios guiam isso:
+//
+// 1. A "leitura financeira" é escrita em CÓDIGO a partir dos números calculados —
+//    não depende do que a IA resumiu durante a conversa. Isso garante qualidade e
+//    completude consistentes em todo diagnóstico, mesmo quando a conversa foi curta.
+// 2. O glossário explica cada termo com linguagem cotidiana e analogia, nunca
+//    assumindo que quem lê sabe o que é "Prime Cost".
+//
+// A causa raiz e a ação recomendada (vindas da conversa, personalizadas) continuam
+// presentes — mas agora como complemento à leitura técnica, não como o único texto
+// explicativo do documento.
 
 import { jsPDF } from "jspdf";
 
@@ -30,11 +39,13 @@ const CIANO: [number, number, number] = [78, 197, 220];
 const AMBAR: [number, number, number] = [217, 169, 76];
 const BRANCO: [number, number, number] = [232, 238, 243];
 const CINZA: [number, number, number] = [143, 163, 179];
+const CINZA_ESCURO: [number, number, number] = [40, 55, 70];
 
 const LARGURA = 210;
 const ALTURA = 297;
 const MARGEM = 20;
 const UTIL = LARGURA - MARGEM * 2;
+const RODAPE_Y = ALTURA - 16;
 
 function moeda(valor: number | null): string {
   if (valor === null) return "—";
@@ -45,12 +56,11 @@ function moeda(valor: number | null): string {
   });
 }
 
-function pct(valor: number | null): string {
+function pct(valor: number | null, casas = 1): string {
   if (valor === null) return "—";
-  return valor.toLocaleString("pt-BR", { maximumFractionDigits: 1 }) + "%";
+  return valor.toLocaleString("pt-BR", { maximumFractionDigits: casas }) + "%";
 }
 
-/** Faixa de referência de CMV por tipo de negócio, para o PDF mostrar a comparação. */
 function faixaCmv(tipo: string | null): { min: number; max: number } {
   switch (tipo) {
     case "Bar":
@@ -66,14 +76,134 @@ function faixaCmv(tipo: string | null): { min: number; max: number } {
   }
 }
 
+const FAIXA_PESSOAL = { min: 25, max: 35 };
+
 function limitePrimeCost(tipo: string | null): number {
   return tipo === "Delivery / dark kitchen" ? 65 : 60;
+}
+
+/**
+ * Constrói a leitura financeira em linguagem simples, calculada a partir dos
+ * números — não do resumo da conversa. Segue o mesmo princípio do motor de
+ * diagnóstico do formulário: contas feitas em código, nunca por texto livre de IA.
+ */
+function construirLeituraFinanceira(dados: DadosDiagnosticoPdf): string[] {
+  const paragrafos: string[] = [];
+  const { cmvPercentual, custoPessoalPercentual, primeCostPercentual, faturamentoMensal, tipoNegocio } = dados;
+
+  if (cmvPercentual === null || faturamentoMensal === null) {
+    return [
+      "Não foi possível calcular a leitura completa porque faltam alguns números — " +
+        "o diagnóstico abaixo usa o que foi informado.",
+    ];
+  }
+
+  const faixa = faixaCmv(tipoNegocio);
+  const acimaCmv = cmvPercentual > faixa.max;
+  const gastoInsumos = (cmvPercentual / 100) * faturamentoMensal;
+
+  paragrafos.push(
+    `De cada R$ 100 que entram no caixa, R$ ${(cmvPercentual).toFixed(0)} já foram ` +
+      `gastos comprando o que virou os pratos vendidos — isso é o CMV. No seu caso, ` +
+      `isso representa ${moeda(gastoInsumos)} por mês só em insumos, sobre um ` +
+      `faturamento de ${moeda(faturamentoMensal)}.`
+  );
+
+  if (acimaCmv) {
+    const excedente = cmvPercentual - faixa.max;
+    const valorExcedente = (excedente / 100) * faturamentoMensal;
+    paragrafos.push(
+      `A referência para o seu tipo de negócio fica entre ${faixa.min}% e ${faixa.max}%. ` +
+        `Você está ${excedente.toFixed(1)} pontos percentuais acima do teto — na prática, ` +
+        `${moeda(valorExcedente)} por mês que provavelmente não precisariam sair, se o ` +
+        `custo estivesse dentro da faixa esperada.`
+    );
+  } else {
+    paragrafos.push(
+      `A referência para o seu tipo de negócio fica entre ${faixa.min}% e ${faixa.max}% — ` +
+        `você está dentro dela, o que é um bom sinal nessa frente específica.`
+    );
+  }
+
+  if (custoPessoalPercentual !== null) {
+    const acimaPessoal = custoPessoalPercentual > FAIXA_PESSOAL.max;
+    paragrafos.push(
+      `Já o custo com a equipe — salários e encargos — está em ${pct(custoPessoalPercentual)} ` +
+        `do faturamento. A referência geral é entre ${FAIXA_PESSOAL.min}% e ${FAIXA_PESSOAL.max}%, ` +
+        `${acimaPessoal ? "e você está acima dela" : "e você está dentro dessa faixa"}.`
+    );
+  }
+
+  if (primeCostPercentual !== null) {
+    const limite = limitePrimeCost(tipoNegocio);
+    const acimaPrime = primeCostPercentual > limite;
+    paragrafos.push(
+      `Somando os dois — o que chamamos de Prime Cost — você chega a ${pct(primeCostPercentual)} ` +
+        `do faturamento. ${
+          acimaPrime
+            ? `O saudável seria até ${limite}%, então hoje sobra pouco (ou nada) para pagar ` +
+              `aluguel, contas fixas e ainda ter lucro no fim do mês.`
+            : `Isso está dentro da margem considerada saudável (até ${limite}%), o que significa ` +
+              `que ainda sobra espaço para cobrir despesas fixas e gerar lucro.`
+        }`
+    );
+  }
+
+  return paragrafos;
+}
+
+/** Uma quebra de página segura: se não houver espaço, cria a próxima página. */
+function garantirEspaco(doc: jsPDF, y: number, necessario: number): number {
+  if (y + necessario > RODAPE_Y - 6) {
+    doc.addPage();
+    doc.setFillColor(...NAVY);
+    doc.rect(0, 0, LARGURA, ALTURA, "F");
+    return MARGEM;
+  }
+  return y;
+}
+
+function escreverParagrafo(
+  doc: jsPDF,
+  texto: string,
+  y: number,
+  opcoes?: { corTexto?: [number, number, number]; tamanho?: number }
+): number {
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(opcoes?.tamanho ?? 10);
+  doc.setTextColor(...(opcoes?.corTexto ?? BRANCO));
+  const linhas = doc.splitTextToSize(texto, UTIL);
+  y = garantirEspaco(doc, y, linhas.length * 5 + 4);
+  doc.text(linhas, MARGEM, y);
+  return y + linhas.length * 5 + 5;
+}
+
+function escreverRotulo(doc: jsPDF, texto: string, y: number, cor: [number, number, number] = CIANO): number {
+  y = garantirEspaco(doc, y, 10);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  doc.setTextColor(...cor);
+  doc.text(texto.toUpperCase(), MARGEM, y);
+  return y + 7;
+}
+
+function adicionarRodape(doc: jsPDF) {
+  doc.setDrawColor(...CIANO);
+  doc.setLineWidth(0.3);
+  doc.line(MARGEM, RODAPE_Y - 6, LARGURA - MARGEM, RODAPE_Y - 6);
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7.5);
+  doc.setTextColor(...CINZA);
+  doc.text("Leitura inicial, baseada nos números informados na conversa.", MARGEM, RODAPE_Y - 1);
+  doc.text("Consultor: +55 11 98550-3734", MARGEM, RODAPE_Y + 4);
+  doc.setTextColor(...CIANO);
+  doc.text("sig-fsi.com.br", LARGURA - MARGEM, RODAPE_Y + 4, { align: "right" });
 }
 
 export function gerarPdfDiagnostico(dados: DadosDiagnosticoPdf): jsPDF {
   const doc = new jsPDF({ unit: "mm", format: "a4" });
 
-  // Fundo
   doc.setFillColor(...NAVY);
   doc.rect(0, 0, LARGURA, ALTURA, "F");
 
@@ -91,13 +221,8 @@ export function gerarPdfDiagnostico(dados: DadosDiagnosticoPdf): jsPDF {
   doc.text("SISTEMA INTELIGENTE DE GESTÃO", MARGEM + 14, y + 6);
 
   doc.setTextColor(...CINZA);
-  doc.setFontSize(8);
   doc.text(
-    new Date().toLocaleDateString("pt-BR", {
-      day: "2-digit",
-      month: "long",
-      year: "numeric",
-    }),
+    new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" }),
     LARGURA - MARGEM,
     y + 6,
     { align: "right" }
@@ -160,85 +285,97 @@ export function gerarPdfDiagnostico(dados: DadosDiagnosticoPdf): jsPDF {
 
   y += alturaBloco + 12;
 
-  // Os números que geraram o diagnóstico
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(8);
-  doc.setTextColor(...CIANO);
-  doc.text("NÚMEROS INFORMADOS", MARGEM, y);
+  // ---- O QUE CADA NÚMERO SIGNIFICA (glossário em linguagem simples) ----
+  y = escreverRotulo(doc, "O que cada número significa", y, AMBAR);
 
-  y += 7;
-  const linhas = [
+  const glossario: Array<[string, string]> = [
+    [
+      "CMV (Custo da Mercadoria Vendida)",
+      "É quanto do dinheiro que entra já foi gasto comprando os ingredientes e produtos " +
+        "que viraram os pratos vendidos. Se o CMV é 40%, de cada R$ 100 que você fatura, " +
+        "R$ 40 já foram usados só pra comprar o que foi vendido.",
+    ],
+    [
+      "Custo de pessoal",
+      "É quanto do faturamento vai para salários e encargos da equipe. Junto com o CMV, " +
+        "é um dos dois maiores custos de qualquer negócio de alimentação.",
+    ],
+    [
+      "Prime Cost",
+      "É a soma do CMV com o custo de pessoal. Esse é o número mais importante de todos, " +
+        "porque mostra quanto sobra, no fim das contas, pra pagar aluguel, conta de luz e " +
+        "ainda ter lucro. Quanto menor o Prime Cost, mais fôlego o negócio tem.",
+    ],
+  ];
+
+  glossario.forEach(([termo, explicacao]) => {
+    const linhasExplicacao = doc.splitTextToSize(explicacao, UTIL - 6);
+    const alturaCaixa = linhasExplicacao.length * 4.6 + 12;
+    y = garantirEspaco(doc, y, alturaCaixa);
+
+    doc.setFillColor(...NAVY_CLARO);
+    doc.rect(MARGEM, y, UTIL, alturaCaixa, "F");
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9.5);
+    doc.setTextColor(...CIANO);
+    doc.text(termo, MARGEM + 4, y + 7);
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(...BRANCO);
+    doc.text(linhasExplicacao, MARGEM + 4, y + 13);
+
+    y += alturaCaixa + 5;
+  });
+
+  // ---- NÚMEROS INFORMADOS ----
+  y += 4;
+  y = escreverRotulo(doc, "Números informados", y);
+
+  const linhasNumeros = [
     ["Faturamento mensal", moeda(dados.faturamentoMensal)],
     ["Compras / insumos", moeda(dados.comprasMensal)],
     ["Equipe (salários + encargos)", moeda(dados.custoFuncionariosMensal)],
   ];
 
-  linhas.forEach(([rotulo, valor]) => {
+  linhasNumeros.forEach(([rotulo, valor]) => {
+    y = garantirEspaco(doc, y, 9);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(10);
     doc.setTextColor(...BRANCO);
     doc.text(rotulo, MARGEM, y);
     doc.setTextColor(...AMBAR);
     doc.text(valor, LARGURA - MARGEM, y, { align: "right" });
-
-    doc.setDrawColor(40, 55, 70);
+    doc.setDrawColor(...CINZA_ESCURO);
     doc.setLineWidth(0.1);
     doc.line(MARGEM, y + 2, LARGURA - MARGEM, y + 2);
     y += 8;
   });
 
-  // Referências do setor
+  // ---- LEITURA FINANCEIRA (dissertativa, calculada em código) ----
   y += 6;
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(8);
-  doc.setTextColor(...CIANO);
-  doc.text("REFERÊNCIA PARA O SEU SEGMENTO", MARGEM, y);
+  y = escreverRotulo(doc, "O que esses números dizem sobre o seu negócio", y);
 
-  y += 7;
-  const faixa = faixaCmv(dados.tipoNegocio);
-  const refs = [
-    ["CMV", `${faixa.min}% a ${faixa.max}%`],
-    ["Custo de pessoal", "25% a 35%"],
-    ["Prime Cost", `até ${limitePrimeCost(dados.tipoNegocio)}%`],
-  ];
-
-  refs.forEach(([rotulo, valor]) => {
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(10);
-    doc.setTextColor(...BRANCO);
-    doc.text(rotulo, MARGEM, y);
-    doc.setTextColor(...CINZA);
-    doc.text(valor, LARGURA - MARGEM, y, { align: "right" });
-
-    doc.setDrawColor(40, 55, 70);
-    doc.setLineWidth(0.1);
-    doc.line(MARGEM, y + 2, LARGURA - MARGEM, y + 2);
-    y += 8;
+  construirLeituraFinanceira(dados).forEach((paragrafo) => {
+    y = escreverParagrafo(doc, paragrafo, y);
   });
 
-  // Causa raiz
+  // ---- CAUSA PROVÁVEL (da conversa, personalizada) ----
   if (dados.causaRaiz) {
-    y += 6;
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(8);
-    doc.setTextColor(...AMBAR);
-    doc.text("CAUSA MAIS PROVÁVEL", MARGEM, y);
-
-    y += 7;
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(10);
-    doc.setTextColor(...BRANCO);
-    const texto = doc.splitTextToSize(dados.causaRaiz, UTIL);
-    doc.text(texto, MARGEM, y);
-    y += texto.length * 5 + 4;
+    y += 4;
+    y = escreverRotulo(doc, "Causa mais provável", y, AMBAR);
+    y = escreverParagrafo(doc, dados.causaRaiz, y);
   }
 
-  // Ação recomendada
+  // ---- AÇÃO RECOMENDADA ----
   if (dados.acaoRecomendada) {
     y += 4;
-    doc.setFillColor(...NAVY_CLARO);
     const textoAcao = doc.splitTextToSize(dados.acaoRecomendada, UTIL - 10);
     const alturaCaixa = textoAcao.length * 5 + 18;
+    y = garantirEspaco(doc, y, alturaCaixa);
+
+    doc.setFillColor(...NAVY_CLARO);
     doc.rect(MARGEM, y, UTIL, alturaCaixa, "F");
     doc.setDrawColor(...CIANO);
     doc.setLineWidth(0.2);
@@ -252,30 +389,15 @@ export function gerarPdfDiagnostico(dados: DadosDiagnosticoPdf): jsPDF {
     doc.setFontSize(10);
     doc.setTextColor(...BRANCO);
     doc.text(textoAcao, MARGEM + 5, y + 15);
-    y += alturaCaixa + 10;
+    y += alturaCaixa + 8;
   }
 
-  // Rodapé
-  const yRodape = ALTURA - 22;
-  doc.setDrawColor(...CIANO);
-  doc.setLineWidth(0.3);
-  doc.line(MARGEM, yRodape, LARGURA - MARGEM, yRodape);
-
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(8);
-  doc.setTextColor(...CINZA);
-  doc.text(
-    "Esta é uma leitura inicial, baseada nos números informados.",
-    MARGEM,
-    yRodape + 6
-  );
-  doc.text(
-    "Para uma análise completa da operação, fale com o consultor: +55 11 98550-3734",
-    MARGEM,
-    yRodape + 11
-  );
-  doc.setTextColor(...CIANO);
-  doc.text("sig-fsi.com.br", LARGURA - MARGEM, yRodape + 11, { align: "right" });
+  // Rodapé em todas as páginas geradas
+  const totalPaginas = doc.getNumberOfPages();
+  for (let i = 1; i <= totalPaginas; i++) {
+    doc.setPage(i);
+    adicionarRodape(doc);
+  }
 
   return doc;
 }

@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { moeda } from "@/lib/formatters";
-import { StatusLeadSelect, ExcluirLeadButton } from "./cliente";
+import { StatusLeadSelect, ExcluirLeadButton, BaixarPdfButton } from "./cliente";
 
 export const dynamic = "force-dynamic";
 
@@ -197,7 +197,10 @@ export default async function DiagnosticosAdminPage({
                       {fmtDataHora(lead.created_at)}
                     </td>
                     <td className="px-4 py-3">
-                      <ExcluirLeadButton leadId={lead.id} nomeLead={lead.nome} />
+                      <div className="flex items-start gap-3">
+  <BaixarPdfButton leadId={lead.id} estabelecimento={lead.estabelecimento ?? null} />
+  <ExcluirLeadButton leadId={lead.id} nomeLead={lead.nome} />
+</div>
                     </td>
                   </tr>
                 ))}

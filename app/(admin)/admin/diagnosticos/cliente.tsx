@@ -53,6 +53,65 @@ export function StatusLeadSelect({ leadId, statusAtual, opcoes }: StatusLeadSele
   );
 }
 
+interface BaixarPdfButtonProps {
+  leadId: string;
+  /**
+   * Usado só para nomear o arquivo. Os dados do PDF vêm da API — assim o arquivo
+   * reflete sempre o que está gravado, mesmo que a tabela na tela esteja
+   * desatualizada.
+   */
+  estabelecimento: string | null;
+}
+
+export function BaixarPdfButton({ leadId, estabelecimento }: BaixarPdfButtonProps) {
+  const [gerando, setGerando] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+
+  async function baixar() {
+    if (gerando) return;
+    setGerando(true);
+    setErro(null);
+
+    try {
+      const r = await fetch(`/api/admin/lead-pdf/${leadId}`);
+      if (!r.ok) throw new Error();
+      const dados = await r.json();
+
+      // Sem faturamento não há percentual nenhum para mostrar — o PDF sairia vazio.
+      if (!dados.faturamentoMensal) {
+        setErro("Sem números");
+        return;
+      }
+
+      // Carregada sob demanda: a biblioteca só faz sentido para quem clica.
+      const { gerarPdfDiagnostico, nomeArquivoPdf } = await import(
+        "@/lib/diagnostico-pdf"
+      );
+      const doc = gerarPdfDiagnostico(dados);
+      doc.save(nomeArquivoPdf(dados.estabelecimento ?? estabelecimento));
+    } catch {
+      setErro("Erro ao gerar");
+    } finally {
+      setGerando(false);
+    }
+  }
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={baixar}
+        disabled={gerando}
+        className="rotulo text-[10px] text-white/30 hover:text-ambar disabled:opacity-40"
+        title="Baixar diagnóstico em PDF"
+      >
+        {gerando ? "Gerando..." : "PDF"}
+      </button>
+      {erro && <p className="mt-1 text-[10px] text-alerta">{erro}</p>}
+    </div>
+  );
+}
+
 interface ExcluirLeadButtonProps {
   leadId: string;
   nomeLead: string;

@@ -1,0 +1,65 @@
+// app/api/admin/lead-pdf/[id]/route.ts
+//
+// Devolve os dados de um lead já gravado, no formato que o gerador de PDF espera.
+//
+// Diferente do PDF que o lead baixa durante a conversa (que extrai os dados do
+// diálogo em tempo real), aqui os números já estão no banco — não há nada a
+// interpretar, só a ler. Por isso não usa a API da Anthropic e é instantâneo.
+
+import { NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
+
+export const dynamic = "force-dynamic";
+
+export async function GET(
+  _req: Request,
+  { params }: { params: { id: string } }
+) {
+  const supabase = createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return NextResponse.json({ erro: "Não autenticado." }, { status: 401 });
+  }
+
+  // Mesma checagem usada nas outras telas de admin do projeto.
+  const { data: admin } = await supabase
+    .from("admins_sig")
+    .select("id")
+    .eq("auth_user_id", user.id)
+    .maybeSingle();
+
+  if (!admin) {
+    return NextResponse.json({ erro: "Acesso restrito." }, { status: 403 });
+  }
+
+  const { data: lead, error } = await supabase
+    .from("leads_diagnostico")
+    .select(
+      "nome, estabelecimento, cidade, tipo_negocio, faturamento_mensal, compras_mensal, custo_funcionarios_mensal, cmv_percentual, custo_pessoal_percentual, prime_cost_percentual, causa_raiz, acao_recomendada"
+    )
+    .eq("id", params.id)
+    .maybeSingle();
+
+  if (error || !lead) {
+    return NextResponse.json({ erro: "Lead não encontrado." }, { status: 404 });
+  }
+
+  return NextResponse.json({
+    nome: lead.nome,
+    estabelecimento: lead.estabelecimento,
+    cidade: lead.cidade,
+    tipoNegocio: lead.tipo_negocio,
+    faturamentoMensal: lead.faturamento_mensal,
+    comprasMensal: lead.compras_mensal,
+    custoFuncionariosMensal: lead.custo_funcionarios_mensal,
+    cmvPercentual: lead.cmv_percentual,
+    custoPessoalPercentual: lead.custo_pessoal_percentual,
+    primeCostPercentual: lead.prime_cost_percentual,
+    causaRaiz: lead.causa_raiz,
+    acaoRecomendada: lead.acao_recomendada,
+  });
+}

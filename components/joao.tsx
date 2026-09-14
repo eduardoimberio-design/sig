@@ -66,6 +66,7 @@ export function Joao({ logado }: { logado: boolean }) {
   const [ouvindo, setOuvindo] = useState(false);
   const [suportaVoz, setSuportaVoz] = useState(false);
   const [gerandoPdf, setGerandoPdf] = useState(false);
+  const [pdfDisponivel, setPdfDisponivel] = useState(false);
   const reconhecimentoRef = useRef<any>(null);
   const fimRef = useRef<HTMLDivElement>(null);
 
@@ -285,6 +286,19 @@ export function Joao({ logado }: { logado: boolean }) {
             atalhos: dados.atalhos ?? [],
           },
         ]);
+
+        // Detecta sozinho quando o diagnóstico foi entregue, em vez de depender do
+        // João lembrar de incluir um atalho estruturado — na prática ele às vezes
+        // escreve "aqui está o link" em texto e esquece a parte que o sistema lê.
+        // A presença desses termos juntos só ocorre na mensagem que entrega o
+        // resultado calculado.
+        if (
+          ehDiagnostico &&
+          /cmv/i.test(dados.resposta) &&
+          /prime cost/i.test(dados.resposta)
+        ) {
+          setPdfDisponivel(true);
+        }
       }
     } catch {
       setErro("Falha de conexão. Tente de novo.");
@@ -417,6 +431,20 @@ export function Joao({ logado }: { logado: boolean }) {
 
             <div ref={fimRef} />
           </div>
+
+          {pdfDisponivel && (
+            <div className="border-t border-base-border px-3 pt-3">
+              <button
+                type="button"
+                onClick={baixarPdf}
+                disabled={gerandoPdf}
+                className="rotulo flex w-full items-center justify-center gap-2 border border-ambar/50 bg-ambar/10 px-3 py-2.5 text-xs text-ambar
+                           transition-colors hover:bg-ambar hover:text-base-bg disabled:opacity-40"
+              >
+                {gerandoPdf ? "Gerando PDF..." : "📄 Baixar diagnóstico em PDF"}
+              </button>
+            </div>
+          )}
 
           <div className="border-t border-base-border p-3">
             <div className="flex gap-2">
