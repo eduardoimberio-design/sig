@@ -27,6 +27,8 @@ export type LeadConversa = {
   faturamentoMensal: number | null;
   comprasMensal: number | null;
   custoFuncionariosMensal: number | null;
+  causaRaiz: string | null;
+  acaoRecomendada: string | null;
   maiorPreocupacao: string | null;
   desafioLivre: string | null;
   interesseFinal: string | null;
@@ -172,6 +174,8 @@ function sanitizarLead(bruto: any): LeadConversa | null {
     faturamentoMensal: numero(bruto.faturamentoMensal),
     comprasMensal: numero(bruto.comprasMensal),
     custoFuncionariosMensal: numero(bruto.custoFuncionariosMensal),
+    causaRaiz: texto(bruto.causaRaiz, 1000),
+    acaoRecomendada: texto(bruto.acaoRecomendada, 1000),
     maiorPreocupacao:
       maiorPreocupacao && PREOCUPACOES_VALIDAS.includes(maiorPreocupacao)
         ? maiorPreocupacao

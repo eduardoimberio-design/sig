@@ -65,8 +65,46 @@ export function Joao({ logado }: { logado: boolean }) {
   const [interagiu, setInteragiu] = useState(false);
   const [ouvindo, setOuvindo] = useState(false);
   const [suportaVoz, setSuportaVoz] = useState(false);
+  const [gerandoPdf, setGerandoPdf] = useState(false);
   const reconhecimentoRef = useRef<any>(null);
   const fimRef = useRef<HTMLDivElement>(null);
+
+  /**
+   * Gera o PDF do diagnóstico. Os dados vêm do servidor (que já os extraiu da
+   * conversa para gravar o lead) — assim o PDF mostra exatamente os mesmos números
+   * que ficaram registrados, sem risco de divergência.
+   *
+   * A biblioteca é carregada sob demanda: ela só faz sentido nesta tela e para quem
+   * pede o arquivo, não vale pesar o carregamento inicial do site inteiro.
+   */
+  async function baixarPdf() {
+    if (gerandoPdf) return;
+    setGerandoPdf(true);
+    setErro(null);
+
+    try {
+      const r = await fetch("/api/diagnostico-pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mensagens: falas.map((f) => ({ role: f.role, content: f.content })),
+        }),
+      });
+
+      if (!r.ok) throw new Error("Falha ao montar o diagnóstico.");
+      const dados = await r.json();
+
+      const { gerarPdfDiagnostico, nomeArquivoPdf } = await import(
+        "@/lib/diagnostico-pdf"
+      );
+      const doc = gerarPdfDiagnostico(dados);
+      doc.save(nomeArquivoPdf(dados.estabelecimento));
+    } catch {
+      setErro("Não consegui gerar o PDF agora. Tente de novo em instantes.");
+    } finally {
+      setGerandoPdf(false);
+    }
+  }
 
   // Reconhecimento de fala é nativo do navegador — nenhuma chamada de
   // API, nenhum custo. Só existe no Chrome, Edge e derivados, então o
@@ -321,17 +359,32 @@ export function Joao({ logado }: { logado: boolean }) {
 
                 {fala.atalhos && fala.atalhos.length > 0 && (
                   <div className="mt-2 flex flex-wrap gap-2">
-                    {fala.atalhos.map((a, j) => (
-                      <Link
-                        key={j}
-                        href={a.url}
-                        onClick={() => setAberto(false)}
-                        className="rotulo border border-cyan/40 px-3 py-1.5 text-xs text-cyan
-                                   transition-colors hover:bg-cyan hover:text-base-bg"
-                      >
-                        {a.rotulo}
-                      </Link>
-                    ))}
+                    {fala.atalhos.map((a, j) =>
+                      // Atalho especial: em vez de navegar, gera o PDF do
+                      // diagnóstico na hora, no próprio navegador.
+                      a.url === "#baixar-pdf" ? (
+                        <button
+                          key={j}
+                          type="button"
+                          onClick={baixarPdf}
+                          disabled={gerandoPdf}
+                          className="rotulo border border-ambar/50 bg-ambar/10 px-3 py-1.5 text-xs text-ambar
+                                     transition-colors hover:bg-ambar hover:text-base-bg disabled:opacity-40"
+                        >
+                          {gerandoPdf ? "Gerando..." : a.rotulo}
+                        </button>
+                      ) : (
+                        <Link
+                          key={j}
+                          href={a.url}
+                          onClick={() => setAberto(false)}
+                          className="rotulo border border-cyan/40 px-3 py-1.5 text-xs text-cyan
+                                     transition-colors hover:bg-cyan hover:text-base-bg"
+                        >
+                          {a.rotulo}
+                        </Link>
+                      )
+                    )}
                   </div>
                 )}
               </div>

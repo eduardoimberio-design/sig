@@ -126,6 +126,12 @@ async function gravarLead(
     maior_preocupacao: lead.maiorPreocupacao,
     desafio_livre: lead.desafioLivre,
     interesse_final: lead.interesseFinal,
+    // Estas duas colunas nasceram obrigatórias (quando só o formulário gravava) e
+    // travaram a gravação de leads de conversa por um tempo. A 0026 tornou opcionais,
+    // mas o texto de apoio continua útil no painel — evita ter que abrir a
+    // transcrição inteira para saber o que foi diagnosticado.
+    causa_raiz: lead.causaRaiz,
+    acao_recomendada: lead.acaoRecomendada,
     consentimento_lgpd: true,
     canal: "conversa_joao",
     transcricao,
@@ -153,12 +159,37 @@ async function gravarLead(
     ? await admin.from("leads_diagnostico").update(dados).eq("id", existenteId)
     : await admin.from("leads_diagnostico").insert(dados);
 
-  if (error) {
-    console.error("[João] falha ao gravar lead:", error.message);
+  if (!error) return;
+
+  console.error("[João] falha ao gravar lead:", error.message);
+  await registrarEvento({
+    origem: "joao",
+    tipo: "lead_nao_gravado",
+    mensagem: error.message,
+    detalhe: { nome: lead.nome, whatsapp: lead.whatsapp },
+  });
+
+  // Segunda tentativa com o mínimo indispensável. Se a primeira falhou por causa de
+  // alguma coluna específica (constraint, tipo, valor fora de uma lista permitida),
+  // é melhor salvar o contato e a transcrição do que perder o lead inteiro — a
+  // conversa completa está ali e pode ser lida depois.
+  if (existenteId) return;
+
+  const { error: erroFallback } = await admin.from("leads_diagnostico").insert({
+    nome: lead.nome ?? "(não informado)",
+    whatsapp: lead.whatsapp,
+    email: lead.email,
+    consentimento_lgpd: true,
+    canal: "conversa_joao",
+    transcricao,
+  });
+
+  if (erroFallback) {
+    console.error("[João] fallback também falhou:", erroFallback.message);
     await registrarEvento({
       origem: "joao",
-      tipo: "lead_nao_gravado",
-      mensagem: error.message,
+      tipo: "lead_perdido",
+      mensagem: erroFallback.message,
       detalhe: { nome: lead.nome, whatsapp: lead.whatsapp },
     });
   }
