@@ -15,6 +15,8 @@ export type TipoEvento =
   | "leitura_falhou"
   | "pagamento_falhou"
   | "limite_atingido"
+  | "lead_nao_gravado"
+  | "lead_perdido"
   | "erro";
 
 /**

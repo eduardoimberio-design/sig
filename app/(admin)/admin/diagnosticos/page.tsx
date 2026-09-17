@@ -36,6 +36,7 @@ const TODOS_STATUS: StatusLead[] = [
 
 interface LeadDiagnostico {
   id: string;
+  estabelecimento: string | null;
   nome: string;
   whatsapp: string;
   tipo_negocio: string;
