@@ -74,8 +74,12 @@ export function BaixarPdfButton({ leadId, estabelecimento }: BaixarPdfButtonProp
 
     try {
       const r = await fetch(`/api/admin/lead-pdf/${leadId}`);
-      if (!r.ok) throw new Error();
-      const dados = await r.json();
+      const dados = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        // Mostra o motivo real: "Erro ao gerar" genérico não ajuda a corrigir.
+        setErro(dados?.erro ?? `Falha ${r.status}`);
+        return;
+      }
 
       // Sem faturamento não há percentual nenhum para mostrar — o PDF sairia vazio.
       if (!dados.faturamentoMensal) {
@@ -89,8 +93,9 @@ export function BaixarPdfButton({ leadId, estabelecimento }: BaixarPdfButtonProp
       );
       const doc = gerarPdfDiagnostico(dados);
       doc.save(nomeArquivoPdf(dados.estabelecimento ?? estabelecimento));
-    } catch {
-      setErro("Erro ao gerar");
+    } catch (e: any) {
+      console.error("[PDF lead] falha:", e);
+      setErro(e?.message ? `Erro: ${String(e.message).slice(0, 60)}` : "Erro ao gerar");
     } finally {
       setGerando(false);
     }

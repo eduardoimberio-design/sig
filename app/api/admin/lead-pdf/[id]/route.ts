@@ -48,17 +48,25 @@ export async function GET(
     return NextResponse.json({ erro: "Lead não encontrado." }, { status: 404 });
   }
 
+  // O banco pode devolver numeric como texto. O gerador faz conta com esses
+  // valores; texto ali quebra o PDF sem aviso.
+  const num = (v: unknown) => {
+    if (v === null || v === undefined || v === "") return null;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  };
+
   return NextResponse.json({
     nome: lead.nome,
     estabelecimento: lead.estabelecimento,
     cidade: lead.cidade,
     tipoNegocio: lead.tipo_negocio,
-    faturamentoMensal: lead.faturamento_mensal,
-    comprasMensal: lead.compras_mensal,
-    custoFuncionariosMensal: lead.custo_funcionarios_mensal,
-    cmvPercentual: lead.cmv_percentual,
-    custoPessoalPercentual: lead.custo_pessoal_percentual,
-    primeCostPercentual: lead.prime_cost_percentual,
+    faturamentoMensal: num(lead.faturamento_mensal),
+    comprasMensal: num(lead.compras_mensal),
+    custoFuncionariosMensal: num(lead.custo_funcionarios_mensal),
+    cmvPercentual: num(lead.cmv_percentual),
+    custoPessoalPercentual: num(lead.custo_pessoal_percentual),
+    primeCostPercentual: num(lead.prime_cost_percentual),
     causaRaiz: lead.causa_raiz,
     acaoRecomendada: lead.acao_recomendada,
   });

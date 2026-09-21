@@ -96,18 +96,51 @@ async function gravarLead(
     .join("\n\n")
     .slice(0, 12000);
 
+  // Os valores abaixo têm lista fechada no banco. Se o extrator devolver
+  // algo fora dela, o banco recusa a linha inteira — e o lead se perde por
+  // causa de um campo secundário. Valor desconhecido vira null; o resto do
+  // lead é gravado.
+  const TIPOS_VALIDOS = [
+    "Bar",
+    "Restaurante",
+    "Café / Cafeteria",
+    "Delivery / dark kitchen",
+    "Outro",
+  ];
+  const PREOCUPACOES_VALIDAS = [
+    "Custo de insumos subindo mais rápido do que consigo repassar",
+    "Ticket médio abaixo do que eu gostaria",
+    "Não sei exatamente onde estou perdendo dinheiro",
+    "Equipe e rotina de trabalho desorganizadas",
+  ];
+  const INTERESSES_VALIDOS = [
+    "videochamada_agendada",
+    "aceitou_contato_consultor",
+    "quer_contratar",
+    "sem_interesse",
+    "indefinido",
+  ];
+  const dentroDaLista = (valor: unknown, lista: string[]) =>
+    typeof valor === "string" && lista.includes(valor) ? valor : null;
+
+  // Número zero ou negativo viola as checagens do banco (faturamento > 0).
+  const positivo = (valor: unknown) =>
+    typeof valor === "number" && Number.isFinite(valor) && valor > 0
+      ? valor
+      : null;
+
   const dados = {
     nome: lead.nome ?? "(não informado)",
-    whatsapp: lead.whatsapp ?? "",
+    whatsapp: lead.whatsapp ?? null,
     email: lead.email,
     cidade: lead.cidade,
     estabelecimento: lead.estabelecimento,
-    tipo_negocio: lead.tipoNegocio,
+    tipo_negocio: dentroDaLista(lead.tipoNegocio, TIPOS_VALIDOS),
     numero_funcionarios: lead.numeroFuncionarios,
     itens_cardapio: lead.itensCardapio,
     volume_vendas_mes: lead.volumeVendasMes,
     descricao_operacao: lead.descricaoOperacao,
-    faturamento_mensal: lead.faturamentoMensal,
+    faturamento_mensal: positivo(lead.faturamentoMensal),
     compras_mensal: lead.comprasMensal,
     custo_funcionarios_mensal: lead.custoFuncionariosMensal,
     cmv_percentual:
@@ -124,9 +157,9 @@ async function gravarLead(
             lead.faturamentoMensal) *
           100
         : null,
-    maior_preocupacao: lead.maiorPreocupacao,
+    maior_preocupacao: dentroDaLista(lead.maiorPreocupacao, PREOCUPACOES_VALIDAS),
     desafio_livre: lead.desafioLivre,
-    interesse_final: lead.interesseFinal,
+    interesse_final: dentroDaLista(lead.interesseFinal, INTERESSES_VALIDOS),
     // Estas duas colunas nasceram obrigatórias (quando só o formulário gravava) e
     // travaram a gravação de leads de conversa por um tempo. A 0026 tornou opcionais,
     // mas o texto de apoio continua útil no painel — evita ter que abrir a
