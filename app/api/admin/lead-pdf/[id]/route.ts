@@ -9,6 +9,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { registrarEvento } from "@/lib/eventos";
 
 export const dynamic = "force-dynamic";
 
@@ -61,7 +62,25 @@ export async function GET(
   }
 
   if (!lead) {
-    return NextResponse.json({ erro: "Lead não encontrado." }, { status: 404 });
+    // Diz o que foi procurado: "não encontrado" sozinho não permite
+    // descobrir se o problema é o id, a chave de servidor ou o registro.
+    const temChaveServidor = !!process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    await registrarEvento({
+      origem: "suporte",
+      tipo: "erro",
+      mensagem: `PDF do lead: nenhum registro com o id ${params.id}.`,
+      detalhe: { id: params.id, chave_servidor: temChaveServidor },
+    });
+
+    return NextResponse.json(
+      {
+        erro:
+          `Lead não encontrado (id ${params.id.slice(0, 8)}…` +
+          `${temChaveServidor ? "" : ", chave de servidor ausente"}).`,
+      },
+      { status: 404 }
+    );
   }
 
   // O banco pode devolver numeric como texto. O gerador faz conta com esses
