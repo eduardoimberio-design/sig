@@ -8,6 +8,7 @@
 
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
 
@@ -36,7 +37,14 @@ export async function GET(
     return NextResponse.json({ erro: "Acesso restrito." }, { status: 403 });
   }
 
-  const { data: lead, error } = await supabase
+  // A tabela de leads não tem policy de leitura — de propósito, para que
+  // ninguém consiga ler lead pelo navegador. A listagem do admin funciona
+  // porque usa função security definer; aqui o acesso direto era bloqueado
+  // e o lead aparecia como inexistente. Depois da checagem de admin acima,
+  // lemos com a chave de servidor.
+  const admin_db = createAdminClient();
+
+  const { data: lead, error } = await admin_db
     .from("leads_diagnostico")
     .select(
       "nome, estabelecimento, cidade, tipo_negocio, faturamento_mensal, compras_mensal, custo_funcionarios_mensal, cmv_percentual, custo_pessoal_percentual, prime_cost_percentual, causa_raiz, acao_recomendada"
@@ -44,7 +52,15 @@ export async function GET(
     .eq("id", params.id)
     .maybeSingle();
 
-  if (error || !lead) {
+  if (error) {
+    console.error("[lead-pdf] falha ao ler:", error.message);
+    return NextResponse.json(
+      { erro: `Falha ao ler o lead: ${error.message}` },
+      { status: 500 }
+    );
+  }
+
+  if (!lead) {
     return NextResponse.json({ erro: "Lead não encontrado." }, { status: 404 });
   }
 
