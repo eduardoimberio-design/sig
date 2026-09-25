@@ -48,6 +48,11 @@ export function FormCompletarCadastro({ email }: { email: string }) {
             name="telefone"
             placeholder="(11) 90000-0000"
           />
+          <Campo
+            label="Código de indicação (opcional)"
+            name="codigo_indicacao"
+            placeholder="Se alguém te indicou o SIG"
+          />
 
           <div className="pt-2">
             <BotaoSubmit>Concluir e entrar</BotaoSubmit>

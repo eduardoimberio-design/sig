@@ -55,6 +55,12 @@ export function FormCadastroNovo() {
             placeholder="Mínimo 8 caracteres"
           />
 
+          <Campo
+            label="Código de indicação (opcional)"
+            name="codigo_indicacao"
+            placeholder="Se alguém te indicou o SIG"
+          />
+
           <label className="flex items-start gap-3 pt-2 text-xs leading-relaxed text-white/60">
             <input
               type="checkbox"

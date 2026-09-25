@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Space_Grotesk, Inter, IBM_Plex_Mono } from "next/font/google";
 import { createClient } from "@/lib/supabase/server";
 import { Joao } from "@/components/joao";
+import { CapturaIndicacao } from "@/components/captura-indicacao";
 import "./globals.css";
 
 // Space Grotesk: grotesca com desenho levemente estranho nos
@@ -62,6 +63,7 @@ export default async function RootLayout({
           backgroundRepeat: "no-repeat",
         }}
       >
+        <CapturaIndicacao />
         {children}
         <Joao logado={!!user} />
       </body>

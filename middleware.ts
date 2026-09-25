@@ -27,7 +27,10 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const isAuthRoute = request.nextUrl.pathname.startsWith("/login");
-  const isPainelRoute = request.nextUrl.pathname.startsWith("/painel");
+  const isPainelRoute =
+    request.nextUrl.pathname.startsWith("/painel") ||
+    request.nextUrl.pathname === "/afiliado" ||
+    request.nextUrl.pathname.startsWith("/afiliado/");
 
   if (!user && isPainelRoute) {
     return NextResponse.redirect(new URL("/login", request.url));
@@ -41,5 +44,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/painel/:path*", "/admin/:path*", "/login"],
+  matcher: ["/painel/:path*", "/admin/:path*", "/afiliado/:path*", "/afiliado", "/login"],
 };

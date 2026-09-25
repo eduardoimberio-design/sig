@@ -66,6 +66,39 @@ const schemaCadastro = z.object({
   }),
 });
 
+/**
+ * Liga a empresa recém-criada ao afiliado que a indicou.
+ * Fonte: código digitado no formulário ou, na falta dele, o cookie
+ * gravado quando a pessoa chegou pelo link do afiliado.
+ * Nunca impede o cadastro: se o código for inválido, segue sem vínculo.
+ */
+async function vincularAfiliado(
+  supabase: ReturnType<typeof createClient>,
+  empresaId: string | undefined,
+  codigoDigitado: FormDataEntryValue | null
+) {
+  if (!empresaId) return;
+
+  const { cookies } = await import("next/headers");
+  const doCookie = cookies().get("sig_ref")?.value;
+
+  const codigo =
+    (typeof codigoDigitado === "string" && codigoDigitado.trim()) ||
+    doCookie ||
+    "";
+
+  if (!codigo) return;
+
+  try {
+    await supabase.rpc("vincular_indicacao", {
+      p_empresa_id: empresaId,
+      p_codigo: codigo,
+    });
+  } catch (e) {
+    console.error("[SIG] Falha ao vincular indicação:", e);
+  }
+}
+
 export async function cadastrar(
   _estado: EstadoForm,
   formData: FormData
@@ -150,6 +183,12 @@ export async function cadastrar(
         `Falha ao criar a empresa: ${erroRpc?.message ?? "erro desconhecido"}`,
     };
   }
+
+  await vincularAfiliado(
+    supabase,
+    resultado?.empresa_id,
+    formData.get("codigo_indicacao")
+  );
 
   revalidatePath("/", "layout");
   redirect("/painel/acesso");
@@ -292,6 +331,12 @@ export async function completarCadastro(
     console.error("[SIG] Falha ao completar cadastro:", error?.message);
     return { erro: "Não consegui concluir o cadastro. Tente de novo." };
   }
+
+  await vincularAfiliado(
+    supabase,
+    resultado?.empresa_id,
+    formData.get("codigo_indicacao")
+  );
 
   revalidatePath("/", "layout");
   redirect("/painel");

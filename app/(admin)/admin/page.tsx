@@ -109,6 +109,12 @@ export default async function AdminPage() {
               ) : null}
             </a>
             <a
+              href="/admin/afiliados"
+              className="text-white/50 hover:text-cyan"
+            >
+              Afiliados
+            </a>
+            <a
               href="/admin/uso"
               className="text-white/50 hover:text-cyan"
             >

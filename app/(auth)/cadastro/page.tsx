@@ -33,5 +33,13 @@ export default async function CadastroPage() {
   // Já tem tudo: não há o que cadastrar.
   if (vinculo) redirect("/painel");
 
+  const { data: afiliado } = await supabase
+    .from("afiliados")
+    .select("id")
+    .eq("auth_user_id", user.id)
+    .maybeSingle();
+
+  if (afiliado) redirect("/afiliado");
+
   return <FormCompletarCadastro email={user.email ?? ""} />;
 }

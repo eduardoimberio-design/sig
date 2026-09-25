@@ -25,7 +25,16 @@ export default async function PainelLayout({
     .maybeSingle();
 
   // Usuário autenticado mas sem empresa: onboarding incompleto.
-  if (!empresa) redirect("/cadastro");
+  if (!empresa) {
+    // Afiliado não tem empresa: o lugar dele é o painel de afiliado,
+    // não o cadastro de estabelecimento.
+    const { data: afiliado } = await supabase
+      .from("afiliados")
+      .select("id")
+      .eq("auth_user_id", user.id)
+      .maybeSingle();
+    redirect(afiliado ? "/afiliado" : "/cadastro");
+  }
 
   const { data: admin } = await supabase
     .from("admins_sig")
