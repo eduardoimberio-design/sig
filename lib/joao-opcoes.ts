@@ -51,3 +51,47 @@ export function opcoesDaPergunta(chave: unknown): string[] | null {
   const itens = OPCOES_POR_PERGUNTA[chave.trim()];
   return itens ? [...itens] : null;
 }
+
+/**
+ * Quais perguntas de botão a pessoa já respondeu, pelo texto exato de uma opção.
+ *
+ * Existe porque o modelo repetiu a pergunta do tipo de estabelecimento depois de a
+ * pessoa já ter clicado: a resposta por botão é curta e ele não a reconheceu como
+ * resposta. Em vez de insistir no prompt, o sistema passa a saber o que já foi
+ * respondido — e a repetição deixa de depender de o modelo lembrar.
+ */
+export function respostasJaDadas(
+  mensagens: { role: "user" | "assistant"; content: string }[]
+): Record<string, string> {
+  const dadas: Record<string, string> = {};
+
+  for (const m of mensagens) {
+    if (m.role !== "user") continue;
+    const texto = m.content.trim();
+    for (const [chave, itens] of Object.entries(OPCOES_POR_PERGUNTA)) {
+      const achado = itens.find((i) => i === texto);
+      // A última resposta vale: se a pessoa clicou de novo, foi para corrigir.
+      if (achado) dadas[chave] = achado;
+    }
+  }
+
+  return dadas;
+}
+
+const ROTULO_PERGUNTA: Record<string, string> = {
+  tipo_negocio: "tipo de estabelecimento",
+  maior_preocupacao: "situação que mais pesa (dor principal)",
+};
+
+/** Bloco para o contexto do João: o que já foi respondido e não deve ser perguntado. */
+export function blocoRespostasJaDadas(dadas: Record<string, string>): string | null {
+  const chaves = Object.keys(dadas);
+  if (chaves.length === 0) return null;
+
+  return [
+    "RESPOSTAS JÁ REGISTRADAS — a pessoa já respondeu, clicando nos botões:",
+    ...chaves.map((c) => `- ${ROTULO_PERGUNTA[c] ?? c}: ${dadas[c]}`),
+    "NÃO pergunte nenhuma destas de novo e não peça os botões delas outra vez.",
+    "Considere a informação recebida e siga para a próxima etapa do roteiro.",
+  ].join("\n");
+}

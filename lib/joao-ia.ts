@@ -5,7 +5,9 @@ import {
   INTERESSES as INTERESSES_VALIDOS,
   PREOCUPACOES as PREOCUPACOES_VALIDAS,
   TIPOS_NEGOCIO as TIPOS_NEGOCIO_VALIDOS,
+  blocoRespostasJaDadas,
   opcoesDaPergunta,
+  respostasJaDadas,
 } from "./joao-opcoes";
 
 // Dois modelos, escolhidos pelo tipo de conversa:
@@ -195,6 +197,11 @@ export async function responderJoao(params: {
   const modoDiagnostico =
     params.modo === "publico" && ehPaginaDiagnostico(params.telaAtual);
 
+  // O que a pessoa já respondeu nos botões. Serve para duas coisas: avisar o modelo
+  // para não repetir a pergunta, e impedir que os botões voltem à tela mesmo que ele
+  // peça de novo.
+  const jaRespondidas = modoDiagnostico ? respostasJaDadas(params.mensagens) : {};
+
   const planosTexto =
     params.modo === "publico" && params.planos?.length
       ? "\n\nPLANOS DISPONÍVEIS:\n" +
@@ -222,6 +229,7 @@ export async function responderJoao(params: {
     SOBRE_O_SIG,
     MAPA_SISTEMA,
     modoDiagnostico ? montarInstrucoesSDR() : "",
+    modoDiagnostico ? (blocoRespostasJaDadas(jaRespondidas) ?? "") : "",
     modoDiagnostico && params.numerosCalculados ? params.numerosCalculados : "",
     planosTexto,
     ondeEsta,
@@ -293,7 +301,13 @@ export async function responderJoao(params: {
       // O modelo devolve só a CHAVE da pergunta ("tipo_negocio"); os botões são
       // montados aqui, com os valores exatos que o banco aceita. Se ele inventar
       // uma chave, não há botão — a pessoa responde escrevendo, como antes.
-      opcoes: modoDiagnostico ? opcoesDaPergunta(parsed.opcoes) : null,
+      // Pergunta já respondida não volta: sem isto, uma insistência do modelo
+      // mostraria os mesmos botões de novo, como aconteceu no teste de 12/10.
+      opcoes:
+        modoDiagnostico &&
+        !(typeof parsed.opcoes === "string" && parsed.opcoes.trim() in jaRespondidas)
+          ? opcoesDaPergunta(parsed.opcoes)
+          : null,
       // Lead só é extraído na conversa de diagnóstico.
       lead: modoDiagnostico ? sanitizarLead(parsed.lead) : null,
     };

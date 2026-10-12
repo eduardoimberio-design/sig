@@ -7,6 +7,8 @@
 // dá autoridade e mantém a promessa do anúncio visível enquanto ela responde ao
 // João no canto da tela. Sem "use client" — é só conteúdo, sem estado.
 
+import { VideoDiagnostico } from "@/components/video-diagnostico";
+
 export const metadata = {
   title: "Diagnóstico gratuito — SIG",
   description:
@@ -47,6 +49,10 @@ export default function DiagnosticoPage() {
           <span className="text-cyan">sobra lucro</span> no fim do mês. Você já
           calculou ele?
         </h1>
+
+        {/* O vídeo entra logo depois da promessa do título: quem chega de anúncio
+            assiste; quem já quer começar rola direto para a conversa com o João. */}
+        <VideoDiagnostico />
 
         <p className="mb-8 max-w-lg text-[15px] leading-relaxed text-white/55">
           Não é sobre vender mais. É sobre parar de perder dinheiro sem saber onde.
