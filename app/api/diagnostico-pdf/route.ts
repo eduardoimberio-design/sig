@@ -10,6 +10,7 @@
 
 import { NextResponse } from "next/server";
 import { extrairLead } from "@/lib/joao-extrator";
+import { calcularDiagnostico } from "@/lib/diagnostico-calculo";
 import type { MensagemJoao } from "@/lib/joao-ia";
 
 export const dynamic = "force-dynamic";
@@ -57,14 +58,12 @@ export async function POST(req: Request) {
       );
     }
 
-    const cmv =
-      lead.comprasMensal && lead.faturamentoMensal
-        ? (lead.comprasMensal / lead.faturamentoMensal) * 100
-        : null;
-    const pessoal =
-      lead.custoFuncionariosMensal && lead.faturamentoMensal
-        ? (lead.custoFuncionariosMensal / lead.faturamentoMensal) * 100
-        : null;
+    const calc = calcularDiagnostico({
+      tipoNegocio: lead.tipoNegocio,
+      faturamentoMensal: lead.faturamentoMensal,
+      comprasMensal: lead.comprasMensal,
+      custoFuncionariosMensal: lead.custoFuncionariosMensal,
+    });
 
     return NextResponse.json({
       nome: lead.nome,
@@ -74,9 +73,9 @@ export async function POST(req: Request) {
       faturamentoMensal: lead.faturamentoMensal,
       comprasMensal: lead.comprasMensal,
       custoFuncionariosMensal: lead.custoFuncionariosMensal,
-      cmvPercentual: cmv,
-      custoPessoalPercentual: pessoal,
-      primeCostPercentual: cmv !== null && pessoal !== null ? cmv + pessoal : null,
+      cmvPercentual: calc.cmv,
+      custoPessoalPercentual: calc.pessoal,
+      primeCostPercentual: calc.primeCost,
       causaRaiz: lead.causaRaiz,
       acaoRecomendada: lead.acaoRecomendada,
     });

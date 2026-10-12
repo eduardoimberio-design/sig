@@ -5,7 +5,14 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 type Atalho = { rotulo: string; url: string };
-type Fala = { role: "user" | "assistant"; content: string; atalhos?: Atalho[] };
+type Fala = {
+  role: "user" | "assistant";
+  content: string;
+  atalhos?: Atalho[];
+  // Botões de resposta para perguntas de lista fechada (tipo de estabelecimento,
+  // dor principal). Vêm prontos do servidor, com o texto exato que o banco aceita.
+  opcoes?: string[];
+};
 
 const CHAVE_APRESENTADO = "sig-joao-apresentado";
 
@@ -284,6 +291,7 @@ export function Joao({ logado }: { logado: boolean }) {
             role: "assistant",
             content: dados.resposta,
             atalhos: dados.atalhos ?? [],
+            opcoes: Array.isArray(dados.opcoes) ? dados.opcoes : undefined,
           },
         ]);
 
@@ -370,6 +378,32 @@ export function Joao({ logado }: { logado: boolean }) {
                 >
                   {fala.content}
                 </div>
+
+                {/*
+                  Perguntas de lista fechada são respondidas por clique: o rótulo do
+                  botão é exatamente o valor que vai para o banco, então não há como a
+                  pessoa escrever "cafeteria" e o registro cair fora da lista aceita.
+                  Só a última fala mostra botões — pergunta antiga não pede resposta.
+                */}
+                {fala.role === "assistant" &&
+                  i === falas.length - 1 &&
+                  !carregando &&
+                  fala.opcoes &&
+                  fala.opcoes.length > 0 && (
+                    <div className="mt-3 flex flex-col items-start gap-2">
+                      {fala.opcoes.map((opcao) => (
+                        <button
+                          key={opcao}
+                          type="button"
+                          onClick={() => enviar(opcao)}
+                          className="w-full border border-cyan/40 px-3 py-2 text-left text-sm text-cyan
+                                     transition-colors hover:bg-cyan hover:text-base-bg"
+                        >
+                          {opcao}
+                        </button>
+                      ))}
+                    </div>
+                  )}
 
                 {fala.atalhos && fala.atalhos.length > 0 && (
                   <div className="mt-2 flex flex-wrap gap-2">

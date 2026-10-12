@@ -14,6 +14,11 @@
 
 import Anthropic from "@anthropic-ai/sdk";
 import type { LeadConversa, MensagemJoao } from "./joao-ia";
+import {
+  INTERESSES as INTERESSES_VALIDOS,
+  PREOCUPACOES as PREOCUPACOES_VALIDAS,
+  TIPOS_NEGOCIO as TIPOS_NEGOCIO_VALIDOS,
+} from "./joao-opcoes";
 
 const MODELO_EXTRATOR = "claude-haiku-4-5-20251001";
 
@@ -48,6 +53,11 @@ Formato exato:
 REGRAS:
 - Valores em dinheiro e quantidades vão como número puro: 85000, não "R$ 85.000".
 - Se um dado não aparece na conversa, use null. NUNCA invente.
+- "causaRaiz", "acaoRecomendada" e "desafioLivre" NÃO podem conter percentuais, diferenças em
+  pontos nem valores em reais calculados (CMV, pessoal, Prime Cost, excedente, ticket médio).
+  Esses números são calculados pelo sistema, em código. Registre apenas o que a pessoa
+  disse, com as palavras dela, e a ação recomendada em palavras. Se o João deu uma
+  causa que a pessoa não sustentou na conversa, use null em "causaRaiz".
 - "consentimentoLgpd" é true apenas se a pessoa concordou explicitamente em seguir
   após o pedido de consentimento na abertura.
 - "tipoNegocio" e "maiorPreocupacao" devem ser exatamente um dos valores listados.
@@ -62,27 +72,6 @@ function getClient() {
   if (!apiKey) throw new Error("Chave da Anthropic não configurada.");
   return new Anthropic({ apiKey });
 }
-
-const TIPOS_NEGOCIO_VALIDOS = [
-  "Bar",
-  "Restaurante",
-  "Café / Cafeteria",
-  "Delivery / dark kitchen",
-  "Outro",
-];
-const PREOCUPACOES_VALIDAS = [
-  "Custo de insumos subindo mais rápido do que consigo repassar",
-  "Ticket médio abaixo do que eu gostaria",
-  "Não sei exatamente onde estou perdendo dinheiro",
-  "Equipe e rotina de trabalho desorganizadas",
-];
-const INTERESSES_VALIDOS = [
-  "videochamada_agendada",
-  "aceitou_contato_consultor",
-  "quer_contratar",
-  "sem_interesse",
-  "indefinido",
-];
 
 function texto(valor: any, max = 200): string | null {
   if (typeof valor !== "string") return null;
@@ -174,5 +163,79 @@ export async function extrairLead(
         : "indefinido",
     agendamentoSolicitado: texto(dados.agendamentoSolicitado, 200),
     consentimentoLgpd: dados.consentimentoLgpd === true,
+  };
+}
+
+const INSTRUCAO_NUMEROS = `Você lê uma conversa entre um assistente (João) e um dono de restaurante/bar/delivery e devolve APENAS os números que a PESSOA informou, em JSON, sem markdown.
+
+Formato exato:
+{
+  "tipoNegocio": "Bar | Restaurante | Café / Cafeteria | Delivery / dark kitchen | Outro | null",
+  "faturamentoMensal": número ou null,
+  "comprasMensal": número ou null,
+  "custoFuncionariosMensal": número ou null,
+  "pedidosMes": número inteiro ou null
+}
+
+REGRAS:
+- Valores em reais por MÊS, como número puro: 85000, não "R$ 85.000".
+- Use só o que a PESSOA disse. Não use contas feitas pelo João. NUNCA invente.
+- Se a pessoa deu um valor de outro período (dia, semana, ano), use null, a menos que ela tenha confirmado o valor mensal na conversa.
+- Se ela corrigiu um número, vale o mais recente.
+- "tipoNegocio" deve ser exatamente um dos valores listados, ou null.`;
+
+export interface NumerosDiagnostico {
+  tipoNegocio: string | null;
+  faturamentoMensal: number | null;
+  comprasMensal: number | null;
+  custoFuncionariosMensal: number | null;
+  pedidosMes: number | null;
+}
+
+/**
+ * Leitura enxuta só dos números, para o sistema calcular CMV, pessoal e Prime Cost
+ * ANTES de o João responder. Devolve null se não houver nada utilizável.
+ */
+export async function extrairNumeros(
+  mensagens: MensagemJoao[]
+): Promise<NumerosDiagnostico | null> {
+  const client = getClient();
+
+  const conversa = mensagens
+    .map((m) => `${m.role === "user" ? "PESSOA" : "JOÃO"}: ${m.content}`)
+    .join("\n\n");
+
+  const resposta = await client.messages.create({
+    model: MODELO_EXTRATOR,
+    max_tokens: 250,
+    system: INSTRUCAO_NUMEROS,
+    messages: [
+      { role: "user", content: `Conversa:\n\n${conversa}` },
+      { role: "assistant", content: "{" },
+    ],
+  });
+
+  const bloco = resposta.content.find((b) => b.type === "text");
+  if (!bloco || bloco.type !== "text") return null;
+
+  const bruto = "{" + bloco.text;
+  const inicio = bruto.indexOf("{");
+  const fim = bruto.lastIndexOf("}");
+  if (inicio < 0 || fim <= inicio) return null;
+
+  let dados: any;
+  try {
+    dados = JSON.parse(bruto.slice(inicio, fim + 1));
+  } catch {
+    return null;
+  }
+
+  const tipo = texto(dados.tipoNegocio, 40);
+  return {
+    tipoNegocio: tipo && TIPOS_NEGOCIO_VALIDOS.includes(tipo) ? tipo : null,
+    faturamentoMensal: numero(dados.faturamentoMensal),
+    comprasMensal: numero(dados.comprasMensal),
+    custoFuncionariosMensal: numero(dados.custoFuncionariosMensal),
+    pedidosMes: inteiro(dados.pedidosMes),
   };
 }

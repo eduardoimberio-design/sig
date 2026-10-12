@@ -7,7 +7,13 @@ import {
   type MensagemJoao,
   type LeadConversa,
 } from "@/lib/joao-ia";
-import { extrairLead } from "@/lib/joao-extrator";
+import { extrairLead, extrairNumeros } from "@/lib/joao-extrator";
+import { blocoParaJoao, calcularDiagnostico } from "@/lib/diagnostico-calculo";
+import {
+  INTERESSES as INTERESSES_VALIDOS,
+  PREOCUPACOES as PREOCUPACOES_VALIDAS,
+  TIPOS_NEGOCIO as TIPOS_VALIDOS,
+} from "@/lib/joao-opcoes";
 import { registrarEvento } from "@/lib/eventos";
 
 export const dynamic = "force-dynamic";
@@ -100,26 +106,9 @@ async function gravarLead(
   // algo fora dela, o banco recusa a linha inteira — e o lead se perde por
   // causa de um campo secundário. Valor desconhecido vira null; o resto do
   // lead é gravado.
-  const TIPOS_VALIDOS = [
-    "Bar",
-    "Restaurante",
-    "Café / Cafeteria",
-    "Delivery / dark kitchen",
-    "Outro",
-  ];
-  const PREOCUPACOES_VALIDAS = [
-    "Custo de insumos subindo mais rápido do que consigo repassar",
-    "Ticket médio abaixo do que eu gostaria",
-    "Não sei exatamente onde estou perdendo dinheiro",
-    "Equipe e rotina de trabalho desorganizadas",
-  ];
-  const INTERESSES_VALIDOS = [
-    "videochamada_agendada",
-    "aceitou_contato_consultor",
-    "quer_contratar",
-    "sem_interesse",
-    "indefinido",
-  ];
+  // As listas vêm de lib/joao-opcoes.ts, que é também a fonte dos botões de
+  // múltipla escolha da conversa — o que a pessoa clica e o que o banco aceita
+  // são, por construção, o mesmo texto.
   const dentroDaLista = (valor: unknown, lista: string[]) =>
     typeof valor === "string" && lista.includes(valor) ? valor : null;
 
@@ -320,12 +309,27 @@ export async function POST(req: Request) {
   }
 
   try {
+    // As contas do diagnóstico são feitas em código ANTES de o João responder: ele
+    // recebe CMV, pessoal, Prime Cost e a posição em cada faixa já calculados e só
+    // escolhe as palavras. Se a leitura dos números falhar, a conversa segue sem o
+    // bloco (e o João é instruído a não fazer a conta de cabeça).
+    let numerosCalculados: string | null = null;
+    if (modoDiagnostico && mensagens.length >= 4) {
+      try {
+        const n = await extrairNumeros(mensagens);
+        if (n) numerosCalculados = blocoParaJoao(calcularDiagnostico(n));
+      } catch (e: any) {
+        console.error("[João] falha ao ler números:", e?.message ?? e);
+      }
+    }
+
     const resultado = await responderJoao({
       mensagens,
       modo,
       telaAtual,
       planos,
       empresaNome,
+      numerosCalculados,
     });
 
     // Extração do lead: roda a partir do momento em que a conversa tem substância

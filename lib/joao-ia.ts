@@ -1,6 +1,12 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { MAPA_SISTEMA, SOBRE_O_SIG } from "./joao-mapa";
 import { montarInstrucoesSDR } from "./joao-sdr";
+import {
+  INTERESSES as INTERESSES_VALIDOS,
+  PREOCUPACOES as PREOCUPACOES_VALIDAS,
+  TIPOS_NEGOCIO as TIPOS_NEGOCIO_VALIDOS,
+  opcoesDaPergunta,
+} from "./joao-opcoes";
 
 // Dois modelos, escolhidos pelo tipo de conversa:
 // - cliente logado pergunta "onde fica X": resposta curta de orientação, Haiku dá conta
@@ -38,6 +44,11 @@ export type LeadConversa = {
 export type RespostaJoao = {
   resposta: string;
   atalhos: { rotulo: string; url: string }[];
+  /**
+   * Botões de resposta para uma pergunta de lista fechada. Montados pelo sistema a
+   * partir de lib/joao-opcoes.ts — o modelo só indica qual pergunta está fazendo.
+   */
+  opcoes: string[] | null;
   lead?: LeadConversa | null;
 };
 
@@ -57,7 +68,7 @@ Limites que valem sempre:
 - Reclamação, problema de cobrança ou pedido de falar com uma pessoa: encaminhe para o WhatsApp +55 11 98550-3734.
 
 Formato da resposta — responda APENAS com JSON, sem markdown e sem texto fora dele:
-{"resposta": "sua resposta em texto corrido", "atalhos": [{"rotulo": "Criar minha conta", "url": "/cadastro"}]}
+{"resposta": "sua resposta em texto corrido", "atalhos": [{"rotulo": "Criar minha conta", "url": "/cadastro"}], "opcoes": null}
 
 Sobre os atalhos:
 - No máximo 2, e só com URLs que existem no mapa. Sem atalho quando não fizer sentido: "atalhos": [].
@@ -95,7 +106,7 @@ Sua resposta inteira deve ser UM objeto JSON válido e nada mais. Sem markdown, 
 crases, sem texto antes ou depois. Comece com { e termine com }.
 
 Exemplo do formato exato:
-{"resposta": "texto que a pessoa vai ler", "atalhos": [], "lead": null}
+{"resposta": "texto que a pessoa vai ler", "atalhos": [], "opcoes": null, "lead": null}
 
 O texto conversacional vai DENTRO do campo "resposta" — nunca fora do JSON.`;
 
@@ -107,27 +118,6 @@ function ehPaginaDiagnostico(telaAtual?: string | null): boolean {
   if (!telaAtual) return false;
   return telaAtual === "/diagnostico" || telaAtual.startsWith("/diagnostico/");
 }
-
-const TIPOS_NEGOCIO_VALIDOS = [
-  "Bar",
-  "Restaurante",
-  "Café / Cafeteria",
-  "Delivery / dark kitchen",
-  "Outro",
-];
-const PREOCUPACOES_VALIDAS = [
-  "Custo de insumos subindo mais rápido do que consigo repassar",
-  "Ticket médio abaixo do que eu gostaria",
-  "Não sei exatamente onde estou perdendo dinheiro",
-  "Equipe e rotina de trabalho desorganizadas",
-];
-const INTERESSES_VALIDOS = [
-  "videochamada_agendada",
-  "aceitou_contato_consultor",
-  "quer_contratar",
-  "sem_interesse",
-  "indefinido",
-];
 
 function texto(valor: any, max = 200): string | null {
   if (typeof valor !== "string") return null;
@@ -195,6 +185,8 @@ export async function responderJoao(params: {
   telaAtual?: string | null;
   planos?: { nome: string; preco: number; dias: number }[];
   empresaNome?: string | null;
+  /** Bloco com CMV, pessoal e Prime Cost já calculados em código (lib/diagnostico-calculo.ts). */
+  numerosCalculados?: string | null;
 }): Promise<RespostaJoao> {
   const client = getClient();
 
@@ -230,6 +222,7 @@ export async function responderJoao(params: {
     SOBRE_O_SIG,
     MAPA_SISTEMA,
     modoDiagnostico ? montarInstrucoesSDR() : "",
+    modoDiagnostico && params.numerosCalculados ? params.numerosCalculados : "",
     planosTexto,
     ondeEsta,
     quem,
@@ -297,6 +290,10 @@ export async function responderJoao(params: {
     return {
       resposta: String(parsed.resposta ?? "").trim(),
       atalhos,
+      // O modelo devolve só a CHAVE da pergunta ("tipo_negocio"); os botões são
+      // montados aqui, com os valores exatos que o banco aceita. Se ele inventar
+      // uma chave, não há botão — a pessoa responde escrevendo, como antes.
+      opcoes: modoDiagnostico ? opcoesDaPergunta(parsed.opcoes) : null,
       // Lead só é extraído na conversa de diagnóstico.
       lead: modoDiagnostico ? sanitizarLead(parsed.lead) : null,
     };
@@ -314,6 +311,7 @@ export async function responderJoao(params: {
     return {
       resposta: semJson || "Não consegui formular a resposta. Pergunte de novo?",
       atalhos: [],
+      opcoes: null,
       lead: null,
     };
   }

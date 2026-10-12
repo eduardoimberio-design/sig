@@ -17,6 +17,7 @@
 // explicativo do documento.
 
 import { jsPDF } from "jspdf";
+import { calcularDiagnostico, fraseCmv, frasePessoal, frasePrime } from "./diagnostico-calculo";
 
 export interface DadosDiagnosticoPdf {
   nome: string | null;
@@ -61,35 +62,14 @@ function pct(valor: number | null, casas = 1): string {
   return valor.toLocaleString("pt-BR", { maximumFractionDigits: casas }) + "%";
 }
 
-function faixaCmv(tipo: string | null): { min: number; max: number } {
-  switch (tipo) {
-    case "Bar":
-      return { min: 24, max: 30 };
-    case "Café / Cafeteria":
-      return { min: 25, max: 32 };
-    case "Delivery / dark kitchen":
-      return { min: 30, max: 38 };
-    case "Restaurante":
-      return { min: 28, max: 34 };
-    default:
-      return { min: 28, max: 35 };
-  }
-}
-
-const FAIXA_PESSOAL = { min: 25, max: 35 };
-
-function limitePrimeCost(tipo: string | null): number {
-  return tipo === "Delivery / dark kitchen" ? 65 : 60;
-}
-
 /**
  * Constrói a leitura financeira em linguagem simples, calculada a partir dos
- * números — não do resumo da conversa. Segue o mesmo princípio do motor de
- * diagnóstico do formulário: contas feitas em código, nunca por texto livre de IA.
+ * números — não do resumo da conversa. As contas, as faixas e a posição
+ * (abaixo / dentro / acima) vêm de lib/diagnostico-calculo.ts, a mesma fonte
+ * usada pelo João, para que PDF e conversa nunca divirjam.
  */
 function construirLeituraFinanceira(dados: DadosDiagnosticoPdf): string[] {
-  const paragrafos: string[] = [];
-  const { cmvPercentual, custoPessoalPercentual, primeCostPercentual, faturamentoMensal, tipoNegocio } = dados;
+  const { cmvPercentual, faturamentoMensal } = dados;
 
   if (cmvPercentual === null || faturamentoMensal === null) {
     return [
@@ -98,56 +78,27 @@ function construirLeituraFinanceira(dados: DadosDiagnosticoPdf): string[] {
     ];
   }
 
-  const faixa = faixaCmv(tipoNegocio);
-  const acimaCmv = cmvPercentual > faixa.max;
-  const gastoInsumos = (cmvPercentual / 100) * faturamentoMensal;
+  const calc = calcularDiagnostico({
+    tipoNegocio: dados.tipoNegocio,
+    faturamentoMensal,
+    comprasMensal: dados.comprasMensal,
+    custoFuncionariosMensal: dados.custoFuncionariosMensal,
+  });
 
-  paragrafos.push(
-    `De cada R$ 100 que entram no caixa, R$ ${(cmvPercentual).toFixed(0)} já foram ` +
-      `gastos comprando o que virou os pratos vendidos — isso é o CMV. No seu caso, ` +
-      `isso representa ${moeda(gastoInsumos)} por mês só em insumos, sobre um ` +
-      `faturamento de ${moeda(faturamentoMensal)}.`
-  );
+  const paragrafos: string[] = [];
 
-  if (acimaCmv) {
-    const excedente = cmvPercentual - faixa.max;
-    const valorExcedente = (excedente / 100) * faturamentoMensal;
+  if (calc.cmv !== null && calc.compras !== null) {
     paragrafos.push(
-      `A referência para o seu tipo de negócio fica entre ${faixa.min}% e ${faixa.max}%. ` +
-        `Você está ${excedente.toFixed(1)} pontos percentuais acima do teto — na prática, ` +
-        `${moeda(valorExcedente)} por mês que provavelmente não precisariam sair, se o ` +
-        `custo estivesse dentro da faixa esperada.`
-    );
-  } else {
-    paragrafos.push(
-      `A referência para o seu tipo de negócio fica entre ${faixa.min}% e ${faixa.max}% — ` +
-        `você está dentro dela, o que é um bom sinal nessa frente específica.`
+      `De cada R$ 100 que entram no caixa, R$ ${calc.cmv.toFixed(0)} já foram ` +
+        `gastos comprando o que virou os pratos vendidos — isso é o CMV. No seu caso, ` +
+        `isso representa ${moeda(calc.compras)} por mês só em insumos, sobre um ` +
+        `faturamento de ${moeda(faturamentoMensal)}.`
     );
   }
 
-  if (custoPessoalPercentual !== null) {
-    const acimaPessoal = custoPessoalPercentual > FAIXA_PESSOAL.max;
-    paragrafos.push(
-      `Já o custo com a equipe — salários e encargos — está em ${pct(custoPessoalPercentual)} ` +
-        `do faturamento. A referência geral é entre ${FAIXA_PESSOAL.min}% e ${FAIXA_PESSOAL.max}%, ` +
-        `${acimaPessoal ? "e você está acima dela" : "e você está dentro dessa faixa"}.`
-    );
-  }
-
-  if (primeCostPercentual !== null) {
-    const limite = limitePrimeCost(tipoNegocio);
-    const acimaPrime = primeCostPercentual > limite;
-    paragrafos.push(
-      `Somando os dois — o que chamamos de Prime Cost — você chega a ${pct(primeCostPercentual)} ` +
-        `do faturamento. ${
-          acimaPrime
-            ? `O saudável seria até ${limite}%, então hoje sobra pouco (ou nada) para pagar ` +
-              `aluguel, contas fixas e ainda ter lucro no fim do mês.`
-            : `Isso está dentro da margem considerada saudável (até ${limite}%), o que significa ` +
-              `que ainda sobra espaço para cobrir despesas fixas e gerar lucro.`
-        }`
-    );
-  }
+  [fraseCmv(calc), frasePessoal(calc), frasePrime(calc)].forEach((frase) => {
+    if (frase) paragrafos.push(frase);
+  });
 
   return paragrafos;
 }
