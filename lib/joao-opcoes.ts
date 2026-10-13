@@ -28,6 +28,16 @@ export const PREOCUPACOES = [
   "Equipe e rotina de trabalho desorganizadas",
 ];
 
+/**
+ * O fechamento do diagnóstico: as duas saídas que a pessoa escolhe clicando.
+ * O texto é o que ela vê no botão E o que o sistema usa para saber a intenção —
+ * ver INTERESSE_POR_FECHAMENTO, logo abaixo.
+ */
+export const FECHAMENTOS = [
+  "Quero começar a usar o SIG agora",
+  "Prefiro agendar uma sessão estratégica gratuita",
+];
+
 export const INTERESSES = [
   "videochamada_agendada",
   "aceitou_contato_consultor",
@@ -43,7 +53,35 @@ export const INTERESSES = [
 export const OPCOES_POR_PERGUNTA: Record<string, string[]> = {
   tipo_negocio: TIPOS_NEGOCIO,
   maior_preocupacao: PREOCUPACOES,
+  fechamento: FECHAMENTOS,
 };
+
+/**
+ * De qual botão de fechamento a pessoa clicou para o interesse_final gravado no
+ * lead. Em código, e não por leitura do modelo: o clique é inequívoco, e deixar a
+ * IA interpretar uma intenção que já está explícita seria inventar incerteza.
+ *
+ * "Prefiro agendar" vira aceitou_contato_consultor, não videochamada_agendada —
+ * no clique ela aceitou o contato, mas ainda não disse dia nem período. Quando
+ * disser, o extrator promove para videochamada_agendada.
+ */
+export const INTERESSE_POR_FECHAMENTO: Record<string, string> = {
+  "Quero começar a usar o SIG agora": "quer_contratar",
+  "Prefiro agendar uma sessão estratégica gratuita": "aceitou_contato_consultor",
+};
+
+/** O interesse que o clique de fechamento indica, ou null se não houve clique. */
+export function interessePorFechamento(
+  mensagens: { role: "user" | "assistant"; content: string }[]
+): string | null {
+  for (let i = mensagens.length - 1; i >= 0; i--) {
+    const m = mensagens[i];
+    if (m.role !== "user") continue;
+    const achado = INTERESSE_POR_FECHAMENTO[m.content.trim()];
+    if (achado) return achado;
+  }
+  return null;
+}
 
 /** Devolve os botões de uma pergunta, ou null se a chave não for conhecida. */
 export function opcoesDaPergunta(chave: unknown): string[] | null {
@@ -81,6 +119,7 @@ export function respostasJaDadas(
 const ROTULO_PERGUNTA: Record<string, string> = {
   tipo_negocio: "tipo de estabelecimento",
   maior_preocupacao: "situação que mais pesa (dor principal)",
+  fechamento: "o que quer fazer a seguir",
 };
 
 /** Bloco para o contexto do João: o que já foi respondido e não deve ser perguntado. */

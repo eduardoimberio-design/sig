@@ -10,6 +10,14 @@ import {
 import { extrairLead, extrairNumeros } from "@/lib/joao-extrator";
 import { blocoParaJoao, calcularDiagnostico } from "@/lib/diagnostico-calculo";
 import {
+  chaveAparelho,
+  mensagemLimite,
+  verificarEConsumir,
+  vincularWhatsapp,
+  WHATSAPP_LINK,
+} from "@/lib/acessos";
+import {
+  interessePorFechamento,
   INTERESSES as INTERESSES_VALIDOS,
   PREOCUPACOES as PREOCUPACOES_VALIDAS,
   TIPOS_NEGOCIO as TIPOS_VALIDOS,
@@ -148,7 +156,15 @@ async function gravarLead(
         : null,
     maior_preocupacao: dentroDaLista(lead.maiorPreocupacao, PREOCUPACOES_VALIDAS),
     desafio_livre: lead.desafioLivre,
-    interesse_final: dentroDaLista(lead.interesseFinal, INTERESSES_VALIDOS),
+    // O clique no botão de fechamento manda: ele é explícito, e o extrator às vezes
+    // lê a mesma conversa como "indefinido". A leitura do modelo só vale quando ela
+    // acrescenta algo — por exemplo, "videochamada_agendada" depois que a pessoa
+    // informou dia e período, o que o clique sozinho ainda não dizia.
+    interesse_final:
+      lead.interesseFinal === "videochamada_agendada"
+        ? "videochamada_agendada"
+        : (interessePorFechamento(mensagens) ??
+           dentroDaLista(lead.interesseFinal, INTERESSES_VALIDOS)),
     // Estas duas colunas nasceram obrigatórias (quando só o formulário gravava) e
     // travaram a gravação de leads de conversa por um tempo. A 0026 tornou opcionais,
     // mas o texto de apoio continua útil no painel — evita ter que abrir a
@@ -231,6 +247,13 @@ export async function POST(req: Request) {
   const telaAtual =
     typeof corpo?.telaAtual === "string" ? corpo.telaAtual.slice(0, 120) : null;
 
+  // Id da visita, guardado no navegador da pessoa. Serve para que atualizar a
+  // página ou continuar a conversa não consuma outro acesso da trava.
+  const sessao =
+    typeof corpo?.sessao === "string" && corpo.sessao.trim()
+      ? corpo.sessao.trim().slice(0, 64)
+      : null;
+
   const mensagens: MensagemJoao[] = mensagensBrutas
     .filter(
       (m: any) =>
@@ -292,6 +315,30 @@ export async function POST(req: Request) {
     );
   }
 
+  // Trava de 2 acessos ao diagnóstico. Fica aqui, antes de qualquer chamada paga
+  // à Anthropic: quem está no limite não deve nem custar uma requisição.
+  if (modoDiagnostico && sessao) {
+    const acesso = await verificarEConsumir({
+      recurso: "diagnostico",
+      aparelho: chaveAparelho(req),
+      sessao,
+    });
+
+    if (!acesso.liberado) {
+      await registrarEvento({
+        origem: "funil",
+        tipo: "limite_atingido",
+        mensagem: "Diagnóstico: lead no limite de 2 acessos, enviado ao WhatsApp.",
+        detalhe: { recurso: "diagnostico", acessos: acesso.acessos },
+      });
+
+      return NextResponse.json(
+        { erro: mensagemLimite("diagnostico"), whatsapp: WHATSAPP_LINK },
+        { status: 429 }
+      );
+    }
+  }
+
   // Planos só interessam a quem ainda não é cliente.
   let planos: { nome: string; preco: number; dias: number }[] | undefined;
   if (modo === "publico") {
@@ -346,7 +393,18 @@ export async function POST(req: Request) {
           ...mensagens,
           { role: "assistant", content: resultado.resposta },
         ]);
-        if (lead) await gravarLead(lead, mensagens);
+        if (lead) {
+          await gravarLead(lead, mensagens);
+          // Assim que o WhatsApp aparece, a sessão passa a contar também por ele —
+          // senão trocar de navegador zeraria o contador de quem já se identificou.
+          if (sessao) {
+            await vincularWhatsapp({
+              recurso: "diagnostico",
+              whatsapp: lead.whatsapp,
+              sessao,
+            });
+          }
+        }
       } catch (e: any) {
         // Falha na extração nunca quebra a conversa.
         console.error("[João] falha ao extrair lead:", e?.message ?? e);

@@ -7,6 +7,7 @@
 // dá autoridade e mantém a promessa do anúncio visível enquanto ela responde ao
 // João no canto da tela. Sem "use client" — é só conteúdo, sem estado.
 
+import { CabecalhoSite } from "@/components/cabecalho-site";
 import { VideoDiagnostico } from "@/components/video-diagnostico";
 
 export const metadata = {
@@ -17,7 +18,10 @@ export const metadata = {
 
 export default function DiagnosticoPage() {
   return (
-    <main
+    <>
+      <CabecalhoSite />
+
+      <main
       className="min-h-screen text-[#E8EEF3]"
       style={{
         backgroundImage:
@@ -30,21 +34,12 @@ export default function DiagnosticoPage() {
     >
       {/* A margem à direita abre espaço para a janela do João em telas grandes,
           para que ela não cubra o texto que sustenta a conversa. */}
-      <div className="mx-auto max-w-3xl px-6 py-16 lg:pr-[28rem]">
-        <header className="mb-12 flex items-center justify-between">
-          <div className="titulo text-lg font-bold">
-            SIG<span className="text-cyan">.</span>
-          </div>
-          <div className="rotulo rounded-sm border border-cyan/20 px-3 py-1.5 text-[11px] text-white/45">
-            SISTEMA INTELIGENTE DE GESTÃO
-          </div>
-        </header>
-
+      <div className="mx-auto max-w-3xl px-6 pb-16 pt-12 lg:pr-[28rem]">
         <span className="rotulo mb-4 block text-[11px] tracking-[0.14em] text-cyan">
           Diagnóstico gratuito · 3 minutos
         </span>
 
-        <h1 className="titulo mb-4 text-3xl font-bold leading-tight sm:text-4xl">
+        <h1 className="titulo mb-4 max-w-2xl text-3xl font-bold leading-[1.15] sm:text-4xl lg:text-5xl">
           Existe um número dentro do seu negócio que decide se{" "}
           <span className="text-cyan">sobra lucro</span> no fim do mês. Você já
           calculou ele?
@@ -133,6 +128,7 @@ export default function DiagnosticoPage() {
           <span>WhatsApp: +55 11 98550-3734</span>
         </footer>
       </div>
-    </main>
+      </main>
+    </>
   );
 }

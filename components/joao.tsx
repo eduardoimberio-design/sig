@@ -15,6 +15,27 @@ type Fala = {
 };
 
 const CHAVE_APRESENTADO = "sig-joao-apresentado";
+const CHAVE_SESSAO = "sig-sessao-diagnostico";
+
+/**
+ * Id desta visita, guardado no navegador. A trava de 2 acessos conta SESSÕES, não
+ * mensagens: enquanto o id for o mesmo, atualizar a página ou continuar a conversa
+ * não consome outro acesso. Em navegador sem armazenamento (janela restrita, dados
+ * bloqueados) cai para um id de memória, que vale enquanto a aba estiver aberta.
+ */
+function idDaSessao(): string {
+  const novo = () =>
+    "s-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 10);
+  try {
+    const guardado = localStorage.getItem(CHAVE_SESSAO);
+    if (guardado) return guardado;
+    const id = novo();
+    localStorage.setItem(CHAVE_SESSAO, id);
+    return id;
+  } catch {
+    return novo();
+  }
+}
 
 const ABERTURA_VISITANTE =
   "Bem-vindo ao SIG. Eu sou o João, o guia daqui. Fico à disposição para qualquer " +
@@ -69,6 +90,10 @@ export function Joao({ logado }: { logado: boolean }) {
   const [texto, setTexto] = useState("");
   const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  // Quando a trava de acessos barra, o erro vem acompanhado do WhatsApp: a pessoa
+  // precisa de um caminho, não de uma porta fechada.
+  const [whatsappErro, setWhatsappErro] = useState<string | null>(null);
+  const sessaoRef = useRef<string | null>(null);
   const [interagiu, setInteragiu] = useState(false);
   const [ouvindo, setOuvindo] = useState(false);
   const [suportaVoz, setSuportaVoz] = useState(false);
@@ -261,7 +286,10 @@ export function Joao({ logado }: { logado: boolean }) {
 
     setInteragiu(true);
     setErro(null);
+    setWhatsappErro(null);
     setTexto("");
+    if (!sessaoRef.current) sessaoRef.current = idDaSessao();
+
     const novas: Fala[] = [...falas, { role: "user", content: limpa }];
     setFalas(novas);
     setCarregando(true);
@@ -273,6 +301,7 @@ export function Joao({ logado }: { logado: boolean }) {
         body: JSON.stringify({
           mensagens: novas.map((f) => ({ role: f.role, content: f.content })),
           telaAtual: pathname,
+          sessao: sessaoRef.current,
         }),
       });
 
@@ -284,6 +313,7 @@ export function Joao({ logado }: { logado: boolean }) {
             ? `${dados.erro} (detalhe técnico: ${dados.detalhe})`
             : (dados?.erro ?? "Não consegui responder agora.")
         );
+        if (typeof dados?.whatsapp === "string") setWhatsappErro(dados.whatsapp);
       } else {
         setFalas([
           ...novas,
@@ -443,9 +473,21 @@ export function Joao({ logado }: { logado: boolean }) {
             )}
 
             {erro && (
-              <p className="border-l-2 border-alerta pl-3 text-sm text-alerta">
-                {erro}
-              </p>
+              <div className="border-l-2 border-alerta pl-3">
+                <p className="text-sm text-alerta">{erro}</p>
+                {whatsappErro && (
+                  <a
+                    href={`https://wa.me/${whatsappErro}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="rotulo mt-3 inline-block border border-cyan/50 px-3 py-2 text-[11px]
+                               tracking-[0.14em] text-cyan transition-colors
+                               hover:bg-cyan hover:text-base-bg"
+                  >
+                    Falar no WhatsApp
+                  </a>
+                )}
+              </div>
             )}
 
             {falas.length === 1 && !carregando && (

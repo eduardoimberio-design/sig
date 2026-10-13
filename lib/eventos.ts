@@ -8,7 +8,9 @@ export type OrigemEvento =
   | "marketing"
   | "documentos"
   | "pagamento"
-  | "suporte";
+  | "suporte"
+  // Trava de acessos do diagnóstico e da degustação (lib/acessos.ts).
+  | "funil";
 
 export type TipoEvento =
   | "ia_falhou"
